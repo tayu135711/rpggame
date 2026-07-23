@@ -1,0 +1,438 @@
+/* =========================================================
+   models.js — Three.js プリミティブによる3Dモデル生成
+   依存: THREE (three.min.js)
+   読み込み順: config.js → models.js
+========================================================= */
+
+/* ---------------------------------------------------------
+   ユーティリティ: 岩・宝箱
+--------------------------------------------------------- */
+
+/** 装飾用の岩を生成して返す */
+function makeRock(x, z) {
+  const rock = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.6 + Math.random() * 0.4, 0),
+    new THREE.MeshStandardMaterial({ color: 0x8a8378, flatShading: true })
+  );
+  rock.position.set(x, 0.4, z);
+  rock.castShadow = true;
+  return rock;
+}
+
+/** 宝箱メッシュを生成して返す */
+function buildChest() {
+  const g       = new THREE.Group();
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a5a2a, flatShading: true });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xd9a13c, flatShading: true });
+
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.46), woodMat);
+  base.position.y = 0.2; base.castShadow = true;
+  g.add(base);
+
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.22, 0.48), woodMat);
+  lid.position.y = 0.51; lid.castShadow = true;
+  g.add(lid);
+
+  const band1 = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.5), trimMat);
+  band1.position.y = 0.2;
+  g.add(band1);
+
+  const band2 = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.5), trimMat);
+  band2.position.y = 0.51;
+  g.add(band2);
+
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.06), trimMat);
+  lock.position.set(0, 0.35, 0.25);
+  g.add(lock);
+
+  return g;
+}
+
+/* ---------------------------------------------------------
+   ヤシの木 (島マップ用)
+--------------------------------------------------------- */
+function buildPalmTree(x, z, scale) {
+  const g      = new THREE.Group();
+  const trunk  = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.14, 1.8, 6),
+    new THREE.MeshStandardMaterial({ color: 0x9a7a4a })
+  );
+  trunk.position.y = 0.9;
+  trunk.rotation.z = 0.12;
+  g.add(trunk);
+
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3fae4f, flatShading: true });
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const leaf  = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.0, 4), leafMat);
+    leaf.position.set(Math.cos(angle) * 0.32, 1.85, Math.sin(angle) * 0.32);
+    leaf.rotation.x = Math.PI / 2.2;
+    leaf.rotation.y = angle;
+    g.add(leaf);
+  }
+
+  const coconut = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 6, 6),
+    new THREE.MeshStandardMaterial({ color: 0x5a3a20 })
+  );
+  coconut.position.y = 1.72;
+  g.add(coconut);
+
+  g.position.set(x, 0, z);
+  g.scale.set(scale, scale, scale);
+  return g;
+}
+
+/* ---------------------------------------------------------
+   トレーナー (プレイヤー・島プレイヤー共用)
+--------------------------------------------------------- */
+function buildTrainerModel() {
+  const g      = new THREE.Group();
+  const skin   = new THREE.MeshStandardMaterial({ color: 0xffd9b0, flatShading: true });
+  const jacket = new THREE.MeshStandardMaterial({ color: 0x2f6fd0, flatShading: true });
+  const pants  = new THREE.MeshStandardMaterial({ color: 0x3a3a4a, flatShading: true });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xd03030, flatShading: true });
+
+  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 8), pants);
+  legL.position.set(-0.16, 0.28, 0); legL.castShadow = true;
+  g.add(legL);
+
+  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.55, 8), pants);
+  legR.position.set(0.16, 0.28, 0); legR.castShadow = true;
+  g.add(legR);
+
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.75, 10), jacket);
+  torso.position.y = 0.93; torso.castShadow = true;
+  g.add(torso);
+
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.6, 8), jacket);
+  armL.position.set(-0.5, 0.92, 0); armL.rotation.z = 0.15; armL.castShadow = true;
+  g.add(armL);
+  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), skin);
+  handL.position.set(0, -0.34, 0); // 腕ローカル座標
+  armL.add(handL);
+
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.6, 8), jacket);
+  armR.position.set(0.5, 0.92, 0); armR.rotation.z = -0.15; armR.castShadow = true;
+  g.add(armR);
+  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), skin);
+  handR.position.set(0, -0.34, 0); // 腕ローカル座標
+  armR.add(handR);
+
+  const pack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4, 0.5, 0.22),
+    new THREE.MeshStandardMaterial({ color: 0xffcd3c, flatShading: true })
+  );
+  pack.position.set(0, 0.95, -0.34); pack.castShadow = true;
+  g.add(pack);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 12), skin);
+  head.position.y = 1.55; head.castShadow = true;
+  g.add(head);
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  [-0.13, 0.13].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
+    eye.position.set(ex, 1.58, 0.33);
+    g.add(eye);
+  });
+
+  const mouth = new THREE.Mesh(
+    new THREE.TorusGeometry(0.06, 0.014, 6, 10, Math.PI),
+    new THREE.MeshBasicMaterial({ color: 0x8a4a3a })
+  );
+  mouth.position.set(0, 1.47, 0.34);
+  mouth.rotation.x = Math.PI;
+  g.add(mouth);
+
+  const capTop = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    capMat
+  );
+  capTop.position.y = 1.78; capTop.castShadow = true;
+  g.add(capTop);
+
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.05, 16), capMat);
+  brim.position.set(0, 1.8, 0.12); brim.castShadow = true;
+  g.add(brim);
+
+  // ウォークアニメ用に参照を保存
+  g.userData.legL      = legL;
+  g.userData.legR      = legR;
+  g.userData.armL      = armL;
+  g.userData.armR      = armR;
+  g.userData.walkPhase = 0;
+
+  return g;
+}
+
+/**
+ * 歩行アニメーション更新 (毎フレーム呼び出す)
+ * @param {THREE.Group} group
+ * @param {number} dt - デルタ秒
+ * @param {boolean} moving - 移動中かどうか
+ */
+function updateWalkAnimation(group, dt, moving) {
+  if (!group || !group.userData.legL) return;
+  const u = group.userData;
+  if (moving) {
+    u.walkPhase += dt * 9;
+    const swing = Math.sin(u.walkPhase) * 0.55;
+    u.legL.rotation.x =  swing;
+    u.legR.rotation.x = -swing;
+    u.armL.rotation.x = -swing * 0.8;
+    u.armR.rotation.x =  swing * 0.8;
+  } else {
+    u.legL.rotation.x *= 0.8;
+    u.legR.rotation.x *= 0.8;
+    u.armL.rotation.x *= 0.8;
+    u.armR.rotation.x *= 0.8;
+  }
+}
+
+/* ---------------------------------------------------------
+   敵キャラクター (食べ物モチーフ)
+--------------------------------------------------------- */
+
+/** チョコおばけ */
+function buildChocoGhost() {
+  const g       = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a2c17, flatShading: true });
+  const body    = new THREE.Mesh(new THREE.SphereGeometry(0.6, 14, 10), bodyMat);
+  body.scale.set(1, 1.15, 1);
+  body.position.y = 0.6; body.castShadow = true;
+  g.add(body);
+
+  const dripMat   = new THREE.MeshStandardMaterial({ color: 0x3a2010, flatShading: true });
+  const dripCount = 6;
+  for (let i = 0; i < dripCount; i++) {
+    const angle = (i / dripCount) * Math.PI * 2;
+    const drip  = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 6), dripMat);
+    drip.position.set(Math.cos(angle) * 0.52, 0.1, Math.sin(angle) * 0.52);
+    drip.rotation.x = Math.PI; drip.castShadow = true;
+    g.add(drip);
+  }
+
+  const eyeMat   = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+  [-0.18, 0.18].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.CircleGeometry(0.11, 10), eyeMat);
+    eye.position.set(ex, 0.66, 0.57);
+    g.add(eye);
+    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.05, 10), pupilMat);
+    pupil.position.set(ex, 0.64, 0.585);
+    g.add(pupil);
+  });
+
+  const cherry = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0xc42840 })
+  );
+  cherry.position.set(0, 1.28, 0); cherry.castShadow = true;
+  g.add(cherry);
+
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.02, 0.14, 4),
+    new THREE.MeshStandardMaterial({ color: 0x2f6b2f })
+  );
+  stem.position.set(0, 1.38, 0);
+  g.add(stem);
+
+  return g;
+}
+
+/** ホールケーキ王 */
+function buildCakeKing() {
+  const g     = new THREE.Group();
+  const tier1 = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.75, 0.8, 0.45, 14),
+    new THREE.MeshStandardMaterial({ color: 0xf6dfc4, flatShading: true })
+  );
+  tier1.position.y = 0.225; tier1.castShadow = true;
+
+  const tier2 = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.6, 0.4, 14),
+    new THREE.MeshStandardMaterial({ color: 0xf4c6d0, flatShading: true })
+  );
+  tier2.position.y = 0.65; tier2.castShadow = true;
+
+  const tier3 = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.38, 0.42, 0.35, 14),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true })
+  );
+  tier3.position.y = 1.02; tier3.castShadow = true;
+
+  g.add(tier1, tier2, tier3);
+
+  const crown = new THREE.Mesh(
+    new THREE.TorusGeometry(0.3, 0.06, 8, 16),
+    new THREE.MeshStandardMaterial({ color: 0xe0b83a, metalness: 0.3, roughness: 0.4 })
+  );
+  crown.rotation.x = Math.PI / 2;
+  crown.position.y = 1.28; crown.castShadow = true;
+  g.add(crown);
+
+  const cherry = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0xc42840 })
+  );
+  cherry.position.y = 1.44;
+  g.add(cherry);
+
+  for (let i = 0; i < 3; i++) {
+    const angle  = (i / 3) * Math.PI * 2;
+    const candle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.22, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffffff })
+    );
+    candle.position.set(Math.cos(angle) * 0.2, 1.2, Math.sin(angle) * 0.2);
+    g.add(candle);
+
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.03, 0.08, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffb020 })
+    );
+    flame.position.set(Math.cos(angle) * 0.2, 1.35, Math.sin(angle) * 0.2);
+    g.add(flame);
+  }
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  [-0.18, 0.18].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    eye.position.set(ex, 0.68, 0.58);
+    g.add(eye);
+  });
+
+  return g;
+}
+
+/** ドーナツリング */
+function buildDonutRing() {
+  const g     = new THREE.Group();
+  const donut = new THREE.Mesh(
+    new THREE.TorusGeometry(0.55, 0.28, 10, 20),
+    new THREE.MeshStandardMaterial({ color: 0xe8a0c0, flatShading: true })
+  );
+  donut.rotation.x = Math.PI / 2;
+  donut.position.y = 0.5; donut.castShadow = true;
+  g.add(donut);
+
+  const sprinkleColors = [0xffe45e, 0x5ed6ff, 0x7bd67a, 0xff6f91, 0xffffff];
+  for (let i = 0; i < 14; i++) {
+    const angle  = Math.random() * Math.PI * 2;
+    const radius = 0.3 + Math.random() * 0.5;
+    const spr    = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.12, 5),
+      new THREE.MeshStandardMaterial({ color: sprinkleColors[i % sprinkleColors.length] })
+    );
+    spr.position.set(
+      Math.cos(angle) * radius,
+      0.68 + Math.random() * 0.08,
+      Math.sin(angle) * radius
+    );
+    spr.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    g.add(spr);
+  }
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  [-0.15, 0.15].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    eye.position.set(ex, 0.5, 0.75);
+    g.add(eye);
+  });
+
+  return g;
+}
+
+/** いちごタルト姫 */
+function buildTartPrincess() {
+  const g     = new THREE.Group();
+  const crust = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.65, 0.7, 0.22, 14),
+    new THREE.MeshStandardMaterial({ color: 0xd9a066, flatShading: true })
+  );
+  crust.position.y = 0.11; crust.castShadow = true;
+  g.add(crust);
+
+  const cream = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xfff6e8, flatShading: true })
+  );
+  cream.position.y = 0.22; cream.castShadow = true;
+  g.add(cream);
+
+  const berryMat = new THREE.MeshStandardMaterial({ color: 0xd6304a, flatShading: true });
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const berry = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.22, 8), berryMat);
+    berry.position.set(Math.cos(angle) * 0.28, 0.55, Math.sin(angle) * 0.28);
+    berry.rotation.x = Math.PI; berry.castShadow = true;
+    g.add(berry);
+  }
+
+  const crownBerry = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 8), berryMat);
+  crownBerry.position.y = 0.72;
+  crownBerry.rotation.x = Math.PI;
+  g.add(crownBerry);
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  [-0.16, 0.16].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    eye.position.set(ex, 0.32, 0.66);
+    g.add(eye);
+  });
+
+  return g;
+}
+
+/* ---------------------------------------------------------
+   ENEMY_TYPES — 全敵キャラクターのマスタデータ
+   (build関数を参照するため models.js 末尾に定義)
+--------------------------------------------------------- */
+/** 抹茶ロール (自然属性) */
+function buildMatchaRoll() {
+  const g = new THREE.Group();
+  const rollMat = new THREE.MeshStandardMaterial({ color: 0x4a7c3f, flatShading: true });
+  const roll = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.6, 0.6, 0.4, 16),
+    rollMat
+  );
+  roll.rotation.x = Math.PI / 2;
+  roll.position.y = 0.6;
+  roll.castShadow = true;
+  g.add(roll);
+
+  const creamMat = new THREE.MeshStandardMaterial({ color: 0xfffcf0, flatShading: true });
+  const innerRoll = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.48, 0.48, 0.41, 16),
+    creamMat
+  );
+  innerRoll.rotation.x = Math.PI / 2;
+  innerRoll.position.y = 0.6;
+  g.add(innerRoll);
+
+  const spiralMat = new THREE.MeshStandardMaterial({ color: 0x4a7c3f, flatShading: true });
+  const spiral = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.15, 0.43),
+    spiralMat
+  );
+  spiral.position.set(0.1, 0.6, 0);
+  g.add(spiral);
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+  [-0.15, 0.15].forEach(ex => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    eye.position.set(ex, 0.6, 0.22);
+    g.add(eye);
+  });
+
+  return g;
+}
+
+const ENEMY_TYPES = [
+  { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,   baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark' },
+  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light' },
+  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,    baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire' },
+  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess, baseHp: 38, atk: 6, catchMod: 1.0, element: 'water' },
+  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature' },
+];

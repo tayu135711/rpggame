@@ -2,279 +2,134 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>捕獲RPGデモ</title>
+<meta name="description" content="Three.js製の捕獲RPGデモ。フィールドを探索して電波人間を捕まえよう！">
+
+<!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --ink: #2b1810;
-    --paper: #fffaf0;
-    --cream: #fbecc8;
-    --red: #c8362a;
-    --gold: #c98a2b;
-    --green: #4a7c3f;
-    --plum: #6b3a5c;
-    --notch: 14px;
-  }
-  html, body {
-    margin:0; padding:0; overflow:hidden;
-    background:#bfe3ff;
-    font-family:'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
-  }
-  .display { font-family:'Mochiy Pop One', 'Hiragino Maru Gothic ProN', sans-serif; }
-  #canvas-container { width:100vw; height:100vh; display:block; }
 
-  /* 共通の「かどを切った紙」パネル(このゲームの署名スタイル) */
-  .tag-panel {
-    background:var(--paper);
-    border:2.5px solid var(--ink);
-    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, var(--notch) 100%, 0 calc(100% - var(--notch)));
-    box-shadow: 4px 4px 0 var(--ink);
-  }
-
-  #hud {
-    position:fixed; top:14px; left:14px; color:var(--ink);
-    padding:10px 16px;
-    font-size:13px; font-weight:700; line-height:1.7; pointer-events:none;
-  }
-  #party-panel {
-    position:fixed; top:14px; right:14px; width:220px;
-    color:var(--ink);
-    padding:12px 16px; font-size:13px;
-  }
-  #party-panel h3 {
-    margin:0 0 8px 0; font-size:15px; font-weight:400; color:var(--red);
-    border-bottom:2px dashed var(--ink); padding-bottom:6px;
-  }
-  .party-member { display:flex; align-items:center; gap:6px; margin:5px 0; font-weight:700; }
-  .party-dot { width:12px; height:12px; flex-shrink:0; border:2px solid var(--ink); }
-
-  #battle-overlay {
-    position:fixed; inset:0; z-index:30;
-    background: linear-gradient(180deg, #6b8fae 0%, #a8c8dc 55%, #cfe0c4 100%);
-    display:none; align-items:center; justify-content:center; flex-direction:column;
-    color:var(--ink); font-family:'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif;
-  }
-  #battle-box {
-    width:min(560px, 92vw); padding:20px;
-  }
-  #battle-title { font-size:18px; font-weight:400; margin-bottom:10px; text-align:center; color:var(--red); }
-
-  #battle-stage-wrap {
-    width:100%; height:210px; overflow:hidden; margin-bottom:14px;
-    border:2.5px solid var(--ink);
-    background: linear-gradient(180deg,#bfe3ff 0%, #eaf7ff 55%, #d8f0c8 100%);
-  }
-  #battle-canvas { width:100%; height:100%; display:block; }
-
-  .hpbar-wrap { margin-bottom:10px; }
-  .hpbar-label { display:flex; justify-content:space-between; font-size:13px; font-weight:800; margin-bottom:4px; color:var(--ink); }
-  .hpbar-outer { background:#e6d8b8; height:13px; overflow:hidden; border:2px solid var(--ink); }
-  .hpbar-inner { height:100%; background:var(--green); transition:width 0.3s; }
-  .hpbar-inner.low { background:var(--gold); }
-  .hpbar-inner.critical { background:var(--red); }
-
-  #ally-hp-list { display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px; }
-  .ally-card {
-    flex:0 0 auto; width:96px; background:var(--paper); border:2px solid var(--ink);
-    padding:8px 6px; text-align:center;
-  }
-  .ally-card.fainted { opacity:0.4; }
-  .ally-card-dot { width:12px; height:12px; margin:0 auto 4px; border:2px solid var(--ink); }
-  .ally-card-name { font-size:11px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
-  .ally-card .hpbar-outer { height:7px; margin-bottom:4px; }
-  .ally-card-atk { font-size:10px; color:var(--ink); opacity:0.65; font-weight:700; }
-
-  #battle-log {
-    background:var(--paper); border:2px solid var(--ink); padding:10px; font-size:13px; font-weight:700;
-    height:52px; overflow-y:auto; color:var(--ink); opacity:0.85;
-  }
-  #battle-actions { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
-  .btn {
-    background:#4a7ca8; color:#fff; border:2.5px solid var(--ink);
-    padding:11px 20px; cursor:pointer; font-size:14px; font-weight:800;
-    font-family:inherit; transition:transform 0.08s;
-    box-shadow: 3px 3px 0 var(--ink);
-  }
-  .btn.cmd {
-    width:100%; display:flex; align-items:center; gap:12px; justify-content:flex-start;
-    padding:12px 18px; font-size:15px; background:var(--red);
-  }
-  .cmd-icon { flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-  .icon-attack { width:0; height:0; border-top:8px solid transparent; border-bottom:8px solid transparent; border-left:14px solid #fff; }
-  .icon-capture { width:16px; height:16px; border-radius:50%; border:3px solid #fff; position:relative; }
-  .icon-capture::after { content:''; position:absolute; inset:5px; border-radius:50%; background:#fff; }
-  .icon-run { width:14px; height:14px; border-top:3px solid #fff; border-right:3px solid #fff; transform:rotate(45deg); }
-  .btn:hover { filter:brightness(1.08); }
-  .btn:active { transform:translate(3px,3px); box-shadow:0 0 0 var(--ink); }
-  .btn.capture { background:var(--plum); }
-  .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
-
-  #hud, #party-panel { display:none; }
-
-  #island-overlay {
-    position:fixed; inset:0; z-index:20;
-    background: linear-gradient(180deg,#6fa8c8 0%, #a8d0dc 55%, #dceecc 100%);
-    display:flex; align-items:center; justify-content:center;
-    font-family:'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif;
-  }
-  #island-canvas-wrap { width:min(520px,80vw); height:min(520px,58vh); }
-  #island-canvas { width:100%; height:100%; display:block; }
-  #island-title {
-    position:absolute; top:20px; left:50%; transform:translateX(-50%);
-    font-size:19px; font-weight:400; color:var(--ink);
-    padding:9px 24px;
-  }
-  #island-hint {
-    position:absolute; top:68px; left:50%; transform:translateX(-50%);
-    font-size:12px; font-weight:700; color:var(--ink);
-    background:rgba(255,250,240,0.85); border:1.5px solid var(--ink);
-    padding:4px 14px;
-  }
-  #stage-dots {
-    position:absolute; right:20px; top:50%; transform:translateY(-50%);
-    display:flex; flex-direction:column; gap:9px;
-  }
-  .stage-dot {
-    width:38px; height:38px; border:2.5px solid var(--ink);
-    background:var(--gold); color:#fff; font-weight:800; font-size:14px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer;
-    box-shadow:3px 3px 0 var(--ink); transition:transform 0.08s;
-  }
-  .stage-dot.locked { background:#9a9086; }
-  .stage-dot.selected { outline:3px solid var(--red); outline-offset:1px; }
-  .stage-dot:hover { transform:translate(-2px,-2px); }
-
-  #stage-card {
-    position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
-    padding:14px 22px; text-align:center;
-    width:min(300px,80vw); display:none;
-  }
-  #stage-card-icon {
-    width:44px; height:44px; margin:0 auto 6px; border:2.5px solid var(--ink);
-    background:var(--red); color:#fff; font-size:18px; font-weight:400;
-    display:flex; align-items:center; justify-content:center;
-  }
-  #stage-card-name { font-weight:400; font-size:15px; color:var(--ink); margin:4px 0; }
-  #stage-card-desc { font-size:12px; color:var(--ink); opacity:0.65; margin-bottom:10px; }
-
-  #island-currency {
-    position:absolute; top:20px; left:20px;
-    display:flex; gap:10px;
-  }
-  .currency-badge {
-    display:flex; align-items:center; gap:6px;
-    background:var(--paper); border:2px solid var(--ink);
-    padding:6px 14px; font-weight:800; font-size:13px; color:var(--ink);
-    box-shadow:3px 3px 0 var(--ink);
-  }
-  .icon-diamond { width:10px; height:10px; background:#4fa8d8; border:1.5px solid var(--ink); transform:rotate(45deg); }
-  .icon-coin { width:12px; height:12px; border-radius:50%; background:var(--gold); border:1.5px solid var(--ink); }
-  #island-menu-buttons {
-    position:absolute; top:20px; right:20px;
-    display:flex; flex-direction:column; gap:8px;
-  }
-  #island-menu-buttons .btn { font-size:13px; padding:9px 16px; background:var(--plum); }
-
-  #gacha-modal, #party-modal {
-    position:fixed; inset:0; z-index:40; display:none;
-    align-items:center; justify-content:center;
-    background:rgba(43,24,16,0.55);
-    font-family:'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif;
-  }
-  #gacha-box, #party-box {
-    width:min(360px, 88vw); padding:20px; text-align:center;
-  }
-  .modal-title { font-size:17px; font-weight:400; color:var(--plum); margin-bottom:12px; }
-  #gacha-tabs { display:flex; gap:8px; justify-content:center; margin-bottom:14px; flex-wrap:wrap; }
-  #gacha-tabs .btn { font-size:12px; padding:8px 12px; background:#4a7ca8; }
-  #gacha-result {
-    min-height:64px; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    font-weight:800; color:var(--ink); margin-bottom:14px; font-size:14px; line-height:1.5;
-  }
-  #party-roster { max-height:260px; overflow-y:auto; margin-bottom:14px; text-align:left; }
-  .roster-row {
-    display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:2px dashed var(--ink);
-  }
-  .roster-dot { width:14px; height:14px; flex-shrink:0; border:2px solid var(--ink); }
-  .roster-name { font-weight:800; color:var(--ink); width:110px; flex-shrink:0; }
-  .roster-stats { font-size:12px; color:var(--ink); opacity:0.65; }
-
-  #catch-flash {
-    position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none;
-    transition:opacity 0.15s;
-  }
-  #toast {
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-    background:var(--ink); color:var(--paper); padding:11px 22px;
-    font-size:14px; font-weight:700; opacity:0; transition:opacity 0.3s; pointer-events:none;
-    border:2px solid var(--paper); box-shadow:3px 3px 0 rgba(0,0,0,0.3);
-  }
-</style>
+<!-- ゲームスタイルシート -->
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+<!-- ========================================================
+     フィールドキャンバス
+======================================================== -->
 <div id="canvas-container"></div>
 
+<!-- ========================================================
+     HUD (フィールド操作ガイド)
+======================================================== -->
 <div id="hud" class="tag-panel">
   移動: WASD / 矢印キー<br>
   敵シンボルに近づくとエンカウント
 </div>
 
+<!-- ========================================================
+     パーティパネル (フィールド右上)
+======================================================== -->
 <div id="party-panel" class="tag-panel">
-  <h3>パーティ (<span id="party-count">0</span>/6)</h3>
+  <h3 class="display">パーティ (<span id="party-count">0</span>/6)</h3>
   <div id="party-list" style="color:#999;">まだ誰もいない…</div>
 </div>
 
+<!-- ========================================================
+     バトルオーバーレイ
+======================================================== -->
 <div id="battle-overlay">
   <div id="battle-box" class="tag-panel">
     <div id="battle-title" class="display">やせいの ??? があらわれた！</div>
 
+    <!-- バトル用ミニ3Dビュー -->
     <div id="battle-stage-wrap">
       <canvas id="battle-canvas"></canvas>
     </div>
 
+    <!-- 敵HPバー -->
     <div class="hpbar-wrap">
-      <div class="hpbar-label"><span id="enemy-name">敵</span><span id="enemy-hp-text">0/0</span></div>
-      <div class="hpbar-outer"><div id="enemy-hpbar" class="hpbar-inner" style="width:100%"></div></div>
+      <div class="hpbar-label">
+        <span id="enemy-name">敵</span>
+        <span id="enemy-hp-text">0/0</span>
+      </div>
+      <div class="hpbar-outer">
+        <div id="enemy-hpbar" class="hpbar-inner" style="width:100%"></div>
+      </div>
     </div>
 
+    <!-- コマンドキュー -->
+    <div id="battle-queue-wrap">
+      <span class="queue-label display">ターン属性</span>
+      <div id="battle-queue-list" class="queue-list"></div>
+    </div>
+
+    <!-- コマンドボタン -->
     <div id="battle-actions">
-      <button class="btn cmd" id="btn-attack"><span class="cmd-icon icon-attack"></span>こうげき(全員)</button>
-      <button class="btn cmd capture" id="btn-capture"><span class="cmd-icon icon-capture"></span>つかまえる</button>
-      <button class="btn cmd" id="btn-run"><span class="cmd-icon icon-run"></span>にげる</button>
+      <button class="btn cmd" id="btn-active-cmd">
+        <span class="cmd-icon" id="cmd-active-icon"></span>
+        <span id="cmd-active-text">属性こうげき</span>
+      </button>
+      <button class="btn cmd" id="btn-run" style="background:#4a7ca8;">
+        <span class="cmd-icon icon-run"></span>にげる
+      </button>
     </div>
 
+    <!-- 味方HPカードリスト -->
     <div id="ally-hp-list"></div>
 
+    <!-- バトルログ -->
     <div id="battle-log">戦闘開始！</div>
   </div>
 </div>
 
+<!-- ========================================================
+     島オーバーレイ (ステージ選択ハブ)
+======================================================== -->
 <div id="island-overlay">
   <div id="island-title" class="tag-panel display">しまマップ</div>
   <div id="island-hint">WASD / 矢印キー で あるける</div>
+
+  <!-- 通貨表示 -->
   <div id="island-currency">
-    <div class="currency-badge"><span class="icon-diamond"></span> <span id="diamond-count">0</span></div>
-    <div class="currency-badge"><span class="icon-coin"></span> <span id="coin-count">0</span></div>
+    <div class="currency-badge">
+      <span class="icon-diamond"></span>
+      <span id="diamond-count">0</span>
+    </div>
+    <div class="currency-badge">
+      <span class="icon-coin"></span>
+      <span id="coin-count">0</span>
+    </div>
   </div>
+
+  <!-- メニューボタン -->
   <div id="island-menu-buttons">
     <button class="btn" id="btn-open-gacha">ガチャ</button>
     <button class="btn" id="btn-open-party">パーティ</button>
   </div>
+
+  <!-- 島3Dビュー -->
   <div id="island-canvas-wrap">
     <canvas id="island-canvas"></canvas>
   </div>
+
+  <!-- ステージドット (右サイド) -->
   <div id="stage-dots"></div>
+
+  <!-- ステージ選択カード (下部) -->
   <div id="stage-card" class="tag-panel">
     <div id="stage-card-icon">?</div>
-    <div id="stage-card-name">ステージ1</div>
+    <div id="stage-card-name" class="display">ステージ1</div>
     <div id="stage-card-desc"></div>
     <button class="btn" id="btn-depart">出発する</button>
   </div>
 </div>
 
+<!-- ========================================================
+     ガチャモーダル
+======================================================== -->
 <div id="gacha-modal">
   <div id="gacha-box" class="tag-panel">
     <div class="modal-title display">ガチャ</div>
@@ -288,6 +143,9 @@
   </div>
 </div>
 
+<!-- ========================================================
+     パーティ編成モーダル
+======================================================== -->
 <div id="party-modal">
   <div id="party-box" class="tag-panel">
     <div class="modal-title display">パーティへんせい</div>
@@ -296,1315 +154,31 @@
   </div>
 </div>
 
+<!-- ========================================================
+     演出要素
+======================================================== -->
 <div id="catch-flash"></div>
 <div id="toast"></div>
 
+<!-- ========================================================
+     JavaScript (読み込み順に注意)
+     1. Three.js (外部ライブラリ)
+     2. config.js     … 定数・ステージ定義
+     3. models.js     … 3Dモデル生成 + ENEMY_TYPES
+     4. maze.js       … 迷路生成・ステージセットアップ
+     5. party.js      … パーティ管理・追従
+     6. island.js     … 島シーン・ガチャ・通貨 (scene は main.js より先に必要なためDOMは参照するが、sceneはmain.jsで初期化後に使用)
+     7. battle.js     … バトルシステム
+     8. main.js       … メインシーン初期化・プレイヤー・ループ
+======================================================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-/* =========================================================
-   基本セットアップ(フィールド)
-========================================================= */
-const container = document.getElementById('canvas-container');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fd0e8);
-scene.fog = new THREE.Fog(0x8fd0e8, 30, 70);
+<script src="js/config.js"></script>
+<script src="js/models.js"></script>
+<script src="js/maze.js"></script>
+<script src="js/party.js"></script>
+<script src="js/island.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/main.js"></script>
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 200);
-
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-container.appendChild(renderer.domElement);
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  resizeBattleCanvas();
-  resizeIslandCanvas();
-});
-
-const hemi = new THREE.HemisphereLight(0xffffff, 0x556b2f, 0.9);
-scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff6e0, 0.9);
-sun.position.set(15, 25, 10);
-sun.castShadow = true;
-sun.shadow.mapSize.set(1024,1024);
-sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
-sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
-scene.add(sun);
-
-const groundGeo = new THREE.PlaneGeometry(70, 70, 20, 20);
-const groundMat = new THREE.MeshStandardMaterial({ color:0x6b5d4f, flatShading:true });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-function makeRock(x,z){
-  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6+Math.random()*0.4,0), new THREE.MeshStandardMaterial({color:0x8a8378, flatShading:true}));
-  rock.position.set(x,0.4,z);
-  rock.castShadow = true;
-  return rock;
-}
-const obstacles = []; // 丸型の障害物(装飾の岩など)用。迷路の壁は別途mazeWallCollidersで管理
-
-/* =========================================================
-   迷路生成(ステージ用の洞窟マップ)
-========================================================= */
-const MAZE_COLS = 9, MAZE_ROWS = 9, CELL = 5;
-const WALL_HEIGHT = 3.2, WALL_THICKNESS = 0.5;
-const wallMat = new THREE.MeshStandardMaterial({ color:0x8a7863, flatShading:true, roughness:1 });
-
-let mazeWallMeshes = [];
-let mazeWallColliders = [];
-let stageDecorations = [];
-let chests = [];
-
-function buildChest(){
-  const g = new THREE.Group();
-  const woodMat = new THREE.MeshStandardMaterial({color:0x8a5a2a, flatShading:true});
-  const trimMat = new THREE.MeshStandardMaterial({color:0xd9a13c, flatShading:true});
-
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.4,0.46), woodMat);
-  base.position.y = 0.2;
-  base.castShadow = true;
-  g.add(base);
-
-  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.22,0.48), woodMat);
-  lid.position.y = 0.51;
-  lid.castShadow = true;
-  g.add(lid);
-
-  const band1 = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.06,0.5), trimMat);
-  band1.position.y = 0.2;
-  g.add(band1);
-  const band2 = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.06,0.5), trimMat);
-  band2.position.y = 0.51;
-  g.add(band2);
-
-  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.14,0.06), trimMat);
-  lock.position.set(0,0.35,0.25);
-  g.add(lock);
-
-  return g;
-}
-
-function spawnChest(x,z){
-  const mesh = buildChest();
-  mesh.position.set(x,0,z);
-  scene.add(mesh);
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), new THREE.MeshBasicMaterial({color:0xffe45e}));
-  marker.position.y = 1.0;
-  mesh.add(marker);
-  chests.push({ mesh, opened:false });
-}
-
-function openChest(chest){
-  if(chest.opened) return;
-  chest.opened = true;
-  scene.remove(chest.mesh);
-  const gotCoins = 10 + Math.floor(Math.random()*21);
-  coins += gotCoins;
-  let msg = `たからばこを あけた！ コイン+${gotCoins}`;
-  if(Math.random() < 0.3){
-    const gotDia = 2 + Math.floor(Math.random()*4);
-    diamonds += gotDia;
-    msg += ` ダイヤ+${gotDia}`;
-  }
-  updateCurrencyUI();
-  showToast(msg);
-}
-
-function cellToWorldX(c){ return (c - (MAZE_COLS-1)/2) * CELL; }
-function cellToWorldZ(r){ return (r - (MAZE_ROWS-1)/2) * CELL; }
-
-function generateMaze(cols, rows){
-  const grid = [];
-  for(let r=0;r<rows;r++){
-    const row = [];
-    for(let c=0;c<cols;c++){
-      row.push({ visited:false, walls:{N:true,S:true,E:true,W:true} });
-    }
-    grid.push(row);
-  }
-  const dirs = [
-    {name:'N', dr:-1, dc:0, opp:'S'},
-    {name:'S', dr:1, dc:0, opp:'N'},
-    {name:'E', dr:0, dc:1, opp:'W'},
-    {name:'W', dr:0, dc:-1, opp:'E'},
-  ];
-  const stack = [{r:0,c:0}];
-  grid[0][0].visited = true;
-  while(stack.length){
-    const cur = stack[stack.length-1];
-    const neighbors = [];
-    for(const d of dirs){
-      const nr = cur.r+d.dr, nc = cur.c+d.dc;
-      if(nr>=0 && nr<rows && nc>=0 && nc<cols && !grid[nr][nc].visited){
-        neighbors.push({r:nr,c:nc,dir:d});
-      }
-    }
-    if(neighbors.length){
-      const next = neighbors[Math.floor(Math.random()*neighbors.length)];
-      grid[cur.r][cur.c].walls[next.dir.name] = false;
-      grid[next.r][next.c].walls[next.dir.opp] = false;
-      grid[next.r][next.c].visited = true;
-      stack.push({r:next.r, c:next.c});
-    } else {
-      stack.pop();
-    }
-  }
-  return grid;
-}
-
-function findFarthestCell(grid, cols, rows){
-  const dist = grid.map(row => row.map(() => -1));
-  const queue = [{r:0,c:0}];
-  dist[0][0] = 0;
-  let farthest = {r:0, c:0, d:0};
-  while(queue.length){
-    const cur = queue.shift();
-    const d = dist[cur.r][cur.c];
-    if(d > farthest.d) farthest = {r:cur.r, c:cur.c, d};
-    const cell = grid[cur.r][cur.c];
-    const moves = [];
-    if(!cell.walls.N) moves.push({r:cur.r-1, c:cur.c});
-    if(!cell.walls.S) moves.push({r:cur.r+1, c:cur.c});
-    if(!cell.walls.E) moves.push({r:cur.r, c:cur.c+1});
-    if(!cell.walls.W) moves.push({r:cur.r, c:cur.c-1});
-    for(const m of moves){
-      if(dist[m.r][m.c] === -1){
-        dist[m.r][m.c] = d+1;
-        queue.push(m);
-      }
-    }
-  }
-  return farthest;
-}
-
-function addWallSegment(cx, cz, width, depth){
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, WALL_HEIGHT, depth), wallMat);
-  mesh.position.set(cx, WALL_HEIGHT/2, cz);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  mazeWallMeshes.push(mesh);
-  mazeWallColliders.push({ minX:cx-width/2, maxX:cx+width/2, minZ:cz-depth/2, maxZ:cz+depth/2 });
-}
-
-function collidesWithWalls(x, z, radius){
-  for(const w of mazeWallColliders){
-    const cx = Math.max(w.minX, Math.min(x, w.maxX));
-    const cz = Math.max(w.minZ, Math.min(z, w.maxZ));
-    const dx = x-cx, dz = z-cz;
-    if(dx*dx + dz*dz < radius*radius) return true;
-  }
-  return false;
-}
-
-function clearStageObjects(){
-  mazeWallMeshes.forEach(m => scene.remove(m));
-  mazeWallMeshes = [];
-  mazeWallColliders = [];
-  enemies.forEach(e => { if(e.mesh) scene.remove(e.mesh); });
-  enemies.length = 0;
-  stageDecorations.forEach(d => scene.remove(d));
-  stageDecorations = [];
-  chests.forEach(c => { if(c.mesh) scene.remove(c.mesh); });
-  chests = [];
-}
-
-function spawnBoss(x, z){
-  const baseType = ENEMY_TYPES[1]; // ホールケーキ王
-  const bossType = Object.assign({}, baseType, {
-    baseHp: baseType.baseHp * 3,
-    atk: Math.round(baseType.atk * 1.8),
-    battleScale: 1.4,
-  });
-  const mesh = baseType.build();
-  mesh.scale.set(1.6,1.6,1.6);
-  mesh.position.set(x,0,z);
-  scene.add(mesh);
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8), new THREE.MeshBasicMaterial({color:0xff5050}));
-  marker.position.y = 2.7;
-  mesh.add(marker);
-  enemies.push({
-    mesh, type: bossType,
-    hp: bossType.baseHp, maxHp: bossType.baseHp,
-    alive: true, isBoss: true,
-    wanderTarget: new THREE.Vector3(x,0,z), wanderTimer: 0,
-  });
-}
-
-function setupStage1(){
-  clearStageObjects();
-  const grid = generateMaze(MAZE_COLS, MAZE_ROWS);
-  const bossCell = findFarthestCell(grid, MAZE_COLS, MAZE_ROWS);
-
-  for(let r=0;r<MAZE_ROWS;r++){
-    for(let c=0;c<MAZE_COLS;c++){
-      const cell = grid[r][c];
-      const cx = cellToWorldX(c), cz = cellToWorldZ(r);
-      if(cell.walls.N) addWallSegment(cx, cz-CELL/2, CELL, WALL_THICKNESS);
-      if(cell.walls.S) addWallSegment(cx, cz+CELL/2, CELL, WALL_THICKNESS);
-      if(cell.walls.E) addWallSegment(cx+CELL/2, cz, WALL_THICKNESS, CELL);
-      if(cell.walls.W) addWallSegment(cx-CELL/2, cz, WALL_THICKNESS, CELL);
-    }
-  }
-
-  const startX = cellToWorldX(0), startZ = cellToWorldZ(0);
-  player.position.set(startX, 0, startZ);
-  player.rotation.y = 0;
-  fieldPartyModels.forEach((m,i) => {
-    m.position.set(startX, 0, startZ - 1.3*(i+1));
-  });
-
-  const usedCells = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
-  let spawned = 0;
-  let guard = 0;
-  while(spawned < 5 && guard < 500){
-    guard++;
-    const r = Math.floor(Math.random()*MAZE_ROWS);
-    const c = Math.floor(Math.random()*MAZE_COLS);
-    const key = `${r},${c}`;
-    if(usedCells.has(key)) continue;
-    usedCells.add(key);
-    spawnEnemy(cellToWorldX(c), cellToWorldZ(r));
-    spawned++;
-  }
-
-  spawnBoss(cellToWorldX(bossCell.c), cellToWorldZ(bossCell.r));
-
-  const chestUsed = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
-  let chestSpawned = 0, chestGuard = 0;
-  while(chestSpawned < 3 && chestGuard < 500){
-    chestGuard++;
-    const r = Math.floor(Math.random()*MAZE_ROWS);
-    const c = Math.floor(Math.random()*MAZE_COLS);
-    const key = `${r},${c}`;
-    if(chestUsed.has(key)) continue;
-    chestUsed.add(key);
-    spawnChest(cellToWorldX(c), cellToWorldZ(r));
-    chestSpawned++;
-  }
-
-  // 洞窟の雰囲気づくり: 通路の隅にたまに岩を置く(あたり判定なしの装飾)
-  for(let i=0;i<10;i++){
-    const r = Math.floor(Math.random()*MAZE_ROWS);
-    const c = Math.floor(Math.random()*MAZE_COLS);
-    const rock = makeRock(cellToWorldX(c)+(Math.random()-0.5)*1.5, cellToWorldZ(r)+(Math.random()-0.5)*1.5);
-    rock.scale.setScalar(0.6);
-    scene.add(rock);
-    stageDecorations.push(rock);
-  }
-}
-
-/* =========================================================
-   トレーナー(プレイヤー)モデル
-========================================================= */
-function buildTrainerModel(){
-  const g = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({color:0xffd9b0, flatShading:true});
-  const jacket = new THREE.MeshStandardMaterial({color:0x2f6fd0, flatShading:true});
-  const pants = new THREE.MeshStandardMaterial({color:0x3a3a4a, flatShading:true});
-  const capMat = new THREE.MeshStandardMaterial({color:0xd03030, flatShading:true});
-
-  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.55,8), pants);
-  legL.position.set(-0.16, 0.28, 0);
-  legL.castShadow = true;
-  g.add(legL);
-  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.55,8), pants);
-  legR.position.set(0.16, 0.28, 0);
-  legR.castShadow = true;
-  g.add(legR);
-
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.48,0.75,10), jacket);
-  torso.position.y = 0.93;
-  torso.castShadow = true;
-  g.add(torso);
-
-  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.6,8), jacket);
-  armL.position.set(-0.5, 0.92, 0);
-  armL.rotation.z = 0.15;
-  armL.castShadow = true;
-  g.add(armL);
-  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), skin);
-  handL.position.set(0, -0.34, 0); // 腕のローカル座標(腕の動きに追従)
-  armL.add(handL);
-
-  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.6,8), jacket);
-  armR.position.set(0.5, 0.92, 0);
-  armR.rotation.z = -0.15;
-  armR.castShadow = true;
-  g.add(armR);
-  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), skin);
-  handR.position.set(0, -0.34, 0); // 腕のローカル座標(腕の動きに追従)
-  armR.add(handR);
-
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.5,0.22), new THREE.MeshStandardMaterial({color:0xffcd3c, flatShading:true}));
-  pack.position.set(0, 0.95, -0.34);
-  pack.castShadow = true;
-  g.add(pack);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36,14,12), skin);
-  head.position.y = 1.55;
-  head.castShadow = true;
-  g.add(head);
-
-  const eyeMat = new THREE.MeshBasicMaterial({color:0x2a2a2a});
-  [-0.13, 0.13].forEach(ex => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8), eyeMat);
-    eye.position.set(ex, 1.58, 0.33);
-    g.add(eye);
-  });
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06,0.014,6,10,Math.PI), new THREE.MeshBasicMaterial({color:0x8a4a3a}));
-  mouth.position.set(0, 1.47, 0.34);
-  mouth.rotation.x = Math.PI;
-  g.add(mouth);
-
-  const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,8,0,Math.PI*2,0,Math.PI/2), capMat);
-  capTop.position.y = 1.78;
-  capTop.castShadow = true;
-  g.add(capTop);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.05,16), capMat);
-  brim.position.set(0, 1.8, 0.12);
-  brim.castShadow = true;
-  g.add(brim);
-
-  g.userData.legL = legL;
-  g.userData.legR = legR;
-  g.userData.armL = armL;
-  g.userData.armR = armR;
-  g.userData.walkPhase = 0;
-
-  return g;
-}
-
-// 歩いている間だけ腕と脚を振り、止まったら自然に戻す
-function updateWalkAnimation(group, dt, moving){
-  if(!group || !group.userData.legL) return;
-  const u = group.userData;
-  if(moving){
-    u.walkPhase += dt * 9;
-    const swing = Math.sin(u.walkPhase) * 0.55;
-    u.legL.rotation.x = swing;
-    u.legR.rotation.x = -swing;
-    u.armL.rotation.x = -swing * 0.8;
-    u.armR.rotation.x = swing * 0.8;
-  } else {
-    u.legL.rotation.x *= 0.8;
-    u.legR.rotation.x *= 0.8;
-    u.armL.rotation.x *= 0.8;
-    u.armR.rotation.x *= 0.8;
-  }
-}
-
-const player = buildTrainerModel();
-player.position.set(0,0,0);
-scene.add(player);
-
-const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-const PLAYER_SPEED = 6.5;
-let playerAngle = 0;
-
-/* =========================================================
-   島マップ(ステージ選択ハブ)
-========================================================= */
-function buildPalmTree(x,z,scale){
-  const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.14,1.8,6), new THREE.MeshStandardMaterial({color:0x9a7a4a}));
-  trunk.position.y = 0.9;
-  trunk.rotation.z = 0.12;
-  g.add(trunk);
-  const leafMat = new THREE.MeshStandardMaterial({color:0x3fae4f, flatShading:true});
-  for(let i=0;i<6;i++){
-    const angle = (i/6)*Math.PI*2;
-    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.16,1.0,4), leafMat);
-    leaf.position.set(Math.cos(angle)*0.32, 1.85, Math.sin(angle)*0.32);
-    leaf.rotation.x = Math.PI/2.2;
-    leaf.rotation.y = angle;
-    g.add(leaf);
-  }
-  const coconut = new THREE.Mesh(new THREE.SphereGeometry(0.09,6,6), new THREE.MeshStandardMaterial({color:0x5a3a20}));
-  coconut.position.y = 1.72;
-  g.add(coconut);
-  g.position.set(x,0,z);
-  g.scale.set(scale,scale,scale);
-  return g;
-}
-
-const islandCanvas = document.getElementById('island-canvas');
-const islandScene = new THREE.Scene();
-const islandCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 60);
-const islandRenderer = new THREE.WebGLRenderer({ canvas: islandCanvas, antialias:true, alpha:true });
-
-islandScene.add(new THREE.HemisphereLight(0xffffff, 0x2f6fae, 1.1));
-const islandSun = new THREE.DirectionalLight(0xfff3d0, 0.55);
-islandSun.position.set(5,8,4);
-islandScene.add(islandSun);
-
-const water = new THREE.Mesh(new THREE.CircleGeometry(20,32), new THREE.MeshStandardMaterial({color:0x3fa8e0, roughness:1}));
-water.rotation.x = -Math.PI/2;
-water.position.y = -0.05;
-islandScene.add(water);
-
-const sand = new THREE.Mesh(new THREE.CylinderGeometry(3.2,3.4,0.3,24), new THREE.MeshStandardMaterial({color:0xf0d89a, roughness:1}));
-sand.position.y = -0.15; // 表面がちょうどy=0になる高さ
-islandScene.add(sand);
-
-const islandGrass = new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.7,0.28,24), new THREE.MeshStandardMaterial({color:0x6bc96b, roughness:1}));
-islandGrass.position.y = -0.11; // 砂浜よりわずかに高くしてZファイティングを回避
-islandScene.add(islandGrass);
-
-[[1.3,0.6],[-1.5,0.8],[0.2,-1.6],[-0.9,-1.1]].forEach(([x,z]) => {
-  islandScene.add(buildPalmTree(x, z, 0.9 + Math.random()*0.3));
-});
-
-const islandPlayer = buildTrainerModel();
-islandPlayer.scale.set(0.42, 0.42, 0.42);
-islandPlayer.position.set(0, 0, 1.6);
-islandScene.add(islandPlayer);
-
-function resizeIslandCanvas(){
-  const w = islandCanvas.clientWidth || 400;
-  const h = islandCanvas.clientHeight || 400;
-  islandRenderer.setSize(w, h, false);
-  islandCamera.aspect = w / h;
-  islandCamera.updateProjectionMatrix();
-}
-
-const ISLAND_RADIUS = 3.0;
-const ISLAND_PLAYER_SPEED = 4.5;
-
-function updateIslandPlayer(dt){
-  let dx=0, dz=0;
-  if(keys['w']||keys['arrowup']) dz -= 1;
-  if(keys['s']||keys['arrowdown']) dz += 1;
-  if(keys['a']||keys['arrowleft']) dx -= 1;
-  if(keys['d']||keys['arrowright']) dx += 1;
-
-  if(dx!==0 || dz!==0){
-    const len = Math.hypot(dx,dz);
-    dx/=len; dz/=len;
-    let nx = islandPlayer.position.x + dx*ISLAND_PLAYER_SPEED*dt;
-    let nz = islandPlayer.position.z + dz*ISLAND_PLAYER_SPEED*dt;
-    const dist = Math.hypot(nx,nz);
-    if(dist > ISLAND_RADIUS){
-      const s = ISLAND_RADIUS/dist;
-      nx *= s; nz *= s;
-    }
-    islandPlayer.position.x = nx;
-    islandPlayer.position.z = nz;
-    islandPlayer.rotation.y = Math.atan2(dx,dz);
-  }
-  updateWalkAnimation(islandPlayer, dt, dx!==0 || dz!==0);
-
-  const camOffset = new THREE.Vector3(0, 2.5, 3.1);
-  const targetPos = islandPlayer.position.clone().add(camOffset);
-  islandCamera.position.lerp(targetPos, 0.1);
-  islandCamera.lookAt(islandPlayer.position.clone().add(new THREE.Vector3(0,0.35,0)));
-}
-
-const STAGES = [
-  { no:1,  name:'ケーキのしま',   letter:'ケ', unlocked:true,  desc:'あまい かおりがする、さいしょのステージ' },
-  { no:2,  name:'わがしのしま',   letter:'わ', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:3,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:4,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:5,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:6,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:7,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:8,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:9,  name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-  { no:10, name:'？？？',        letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
-];
-
-let islandOverlayOpen = true;
-let selectedStage = null;
-
-const islandOverlayEl = document.getElementById('island-overlay');
-const hudEl = document.getElementById('hud');
-const partyPanelEl = document.getElementById('party-panel');
-const stageDotsEl = document.getElementById('stage-dots');
-const stageCardEl = document.getElementById('stage-card');
-const btnDepart = document.getElementById('btn-depart');
-
-STAGES.forEach(st => {
-  const dot = document.createElement('div');
-  dot.className = 'stage-dot' + (st.unlocked ? '' : ' locked');
-  dot.textContent = st.no;
-  dot.addEventListener('click', () => selectStage(st, dot));
-  stageDotsEl.appendChild(dot);
-});
-
-function selectStage(st, dotEl){
-  document.querySelectorAll('.stage-dot').forEach(d => d.classList.remove('selected'));
-  dotEl.classList.add('selected');
-  selectedStage = st;
-  document.getElementById('stage-card-icon').textContent = st.letter;
-  document.getElementById('stage-card-name').textContent = `ステージ${st.no}: ${st.name}`;
-  document.getElementById('stage-card-desc').textContent = st.desc;
-  btnDepart.textContent = st.unlocked ? '出発する' : 'じゅんびちゅう';
-  btnDepart.disabled = !st.unlocked;
-  stageCardEl.style.display = 'block';
-}
-
-btnDepart.addEventListener('click', () => {
-  if(!selectedStage || !selectedStage.unlocked) return;
-  closeIslandOverlay();
-  if(selectedStage.no === 1){
-    setupStage1();
-  }
-});
-
-function healPartyFully(){
-  const fighters = getAllFighters();
-  const needsHeal = fighters.some(f => f.hp < f.maxHp);
-  fighters.forEach(f => { f.hp = f.maxHp; });
-  updatePartyPanel();
-  return needsHeal;
-}
-
-function openIslandOverlay(){
-  islandOverlayOpen = true;
-  islandOverlayEl.style.display = 'flex';
-  hudEl.style.display = 'none';
-  partyPanelEl.style.display = 'none';
-  resizeIslandCanvas();
-  islandPlayer.position.set(0, 0, 1.6);
-  islandPlayer.rotation.y = 0;
-  const healed = healPartyFully();
-  if(healed){
-    showToast('しまで やすんで、なかまが ぜんかいふくした！');
-  }
-}
-function closeIslandOverlay(){
-  islandOverlayOpen = false;
-  islandOverlayEl.style.display = 'none';
-  hudEl.style.display = 'block';
-  partyPanelEl.style.display = 'block';
-}
-
-resizeIslandCanvas();
-
-/* =========================================================
-   通貨・ガチャ・パーティ編成(島の拠点機能)
-========================================================= */
-let diamonds = 20;
-let coins = 50;
-function updateCurrencyUI(){
-  document.getElementById('diamond-count').textContent = diamonds;
-  document.getElementById('coin-count').textContent = coins;
-}
-updateCurrencyUI();
-
-const GACHA_COST_DENPA = 5; // ダイヤ
-const RARITY_MAP = { 'チョコおばけ':2, 'ホールケーキ王':4, 'ドーナツリング':2, 'いちごタルト姫':3 };
-
-const gachaModal = document.getElementById('gacha-modal');
-const gachaResultEl = document.getElementById('gacha-result');
-
-document.getElementById('btn-open-gacha').addEventListener('click', () => {
-  gachaResultEl.textContent = 'でんぱガチャ: でんぱ人間が1体でてくるよ';
-  gachaModal.style.display = 'flex';
-});
-document.getElementById('btn-gacha-close').addEventListener('click', () => {
-  gachaModal.style.display = 'none';
-});
-document.getElementById('tab-equip').addEventListener('click', () => {
-  gachaResultEl.textContent = 'そうびガチャは じゅんびちゅう…';
-});
-document.getElementById('tab-denpa').addEventListener('click', () => {
-  gachaResultEl.textContent = 'でんぱガチャ: でんぱ人間が1体でてくるよ';
-});
-
-document.getElementById('btn-gacha-pull').addEventListener('click', () => {
-  if(diamonds < GACHA_COST_DENPA){
-    gachaResultEl.textContent = 'ダイヤが たりない…';
-    return;
-  }
-  if(party.length >= MAX_PARTY){
-    gachaResultEl.textContent = 'パーティがいっぱいだ！';
-    return;
-  }
-  diamonds -= GACHA_COST_DENPA;
-  updateCurrencyUI();
-
-  const type = ENEMY_TYPES[Math.floor(Math.random()*ENEMY_TYPES.length)];
-  const starNum = RARITY_MAP[type.name] || 1;
-  const stars = '★'.repeat(starNum) + '☆'.repeat(5-starNum);
-
-  party.push({
-    name: type.name, color: type.color,
-    hp: Math.round(type.baseHp * 0.8), maxHp: type.baseHp,
-    atk: Math.round(4 + type.baseHp / 10), typeRef: type,
-  });
-  addFieldFollower(type);
-  updatePartyPanel();
-  gachaResultEl.innerHTML = `${type.name} が でてきた！<br><span style="color:#e0a83a;">${stars}</span>`;
-  showToast(`${type.name} が なかまになった！`);
-});
-
-const partyModal = document.getElementById('party-modal');
-document.getElementById('btn-open-party').addEventListener('click', () => {
-  const el = document.getElementById('party-roster');
-  el.innerHTML = getAllFighters().map(f => `
-    <div class="roster-row">
-      <div class="roster-dot" style="background:#${f.color.toString(16).padStart(6,'0')}"></div>
-      <div class="roster-name">${f.name}</div>
-      <div class="roster-stats">HP ${Math.max(0,Math.ceil(f.hp))}/${f.maxHp} ・ こうげき力 ${f.atk}</div>
-    </div>
-  `).join('');
-  partyModal.style.display = 'flex';
-});
-document.getElementById('btn-party-close').addEventListener('click', () => {
-  partyModal.style.display = 'none';
-});
-
-/* =========================================================
-   食べ物モチーフの敵キャラクター定義
-========================================================= */
-function buildChocoGhost(){
-  const g = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({color:0x4a2c17, flatShading:true});
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6,14,10), bodyMat);
-  body.scale.set(1,1.15,1);
-  body.position.y = 0.6; body.castShadow = true;
-  g.add(body);
-
-  const dripMat = new THREE.MeshStandardMaterial({color:0x3a2010, flatShading:true});
-  const dripCount = 6;
-  for(let i=0;i<dripCount;i++){
-    const angle = (i/dripCount)*Math.PI*2;
-    const drip = new THREE.Mesh(new THREE.ConeGeometry(0.09,0.28,6), dripMat);
-    drip.position.set(Math.cos(angle)*0.52, 0.1, Math.sin(angle)*0.52);
-    drip.rotation.x = Math.PI;
-    drip.castShadow = true;
-    g.add(drip);
-  }
-
-  const eyeMat = new THREE.MeshBasicMaterial({color:0xffffff});
-  const pupilMat = new THREE.MeshBasicMaterial({color:0x1a1a1a});
-  [-0.18,0.18].forEach(ex=>{
-    const eye = new THREE.Mesh(new THREE.CircleGeometry(0.11,10), eyeMat);
-    eye.position.set(ex,0.66,0.57);
-    g.add(eye);
-    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.05,10), pupilMat);
-    pupil.position.set(ex,0.64,0.585);
-    g.add(pupil);
-  });
-
-  const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), new THREE.MeshStandardMaterial({color:0xc42840}));
-  cherry.position.set(0,1.28,0);
-  cherry.castShadow = true;
-  g.add(cherry);
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.14,4), new THREE.MeshStandardMaterial({color:0x2f6b2f}));
-  stem.position.set(0,1.38,0);
-  g.add(stem);
-  return g;
-}
-
-function buildCakeKing(){
-  const g = new THREE.Group();
-  const tier1 = new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.8,0.45,14), new THREE.MeshStandardMaterial({color:0xf6dfc4, flatShading:true}));
-  tier1.position.y = 0.225; tier1.castShadow = true;
-  const tier2 = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.6,0.4,14), new THREE.MeshStandardMaterial({color:0xf4c6d0, flatShading:true}));
-  tier2.position.y = 0.65; tier2.castShadow = true;
-  const tier3 = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.42,0.35,14), new THREE.MeshStandardMaterial({color:0xffffff, flatShading:true}));
-  tier3.position.y = 1.02; tier3.castShadow = true;
-  g.add(tier1, tier2, tier3);
-
-  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.06,8,16), new THREE.MeshStandardMaterial({color:0xe0b83a, metalness:0.3, roughness:0.4}));
-  crown.rotation.x = Math.PI/2;
-  crown.position.y = 1.28;
-  crown.castShadow = true;
-  g.add(crown);
-
-  const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8), new THREE.MeshStandardMaterial({color:0xc42840}));
-  cherry.position.y = 1.44;
-  g.add(cherry);
-
-  for(let i=0;i<3;i++){
-    const angle = (i/3)*Math.PI*2;
-    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.22,6), new THREE.MeshStandardMaterial({color:0xffffff}));
-    candle.position.set(Math.cos(angle)*0.2, 1.2, Math.sin(angle)*0.2);
-    g.add(candle);
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.03,0.08,6), new THREE.MeshBasicMaterial({color:0xffb020}));
-    flame.position.set(Math.cos(angle)*0.2, 1.35, Math.sin(angle)*0.2);
-    g.add(flame);
-  }
-
-  const eyeMat = new THREE.MeshBasicMaterial({color:0x2a2a2a});
-  [-0.18,0.18].forEach(ex=>{
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), eyeMat);
-    eye.position.set(ex,0.68,0.58);
-    g.add(eye);
-  });
-  return g;
-}
-
-function buildDonutRing(){
-  const g = new THREE.Group();
-  const donut = new THREE.Mesh(new THREE.TorusGeometry(0.55,0.28,10,20), new THREE.MeshStandardMaterial({color:0xe8a0c0, flatShading:true}));
-  donut.rotation.x = Math.PI/2;
-  donut.position.y = 0.5;
-  donut.castShadow = true;
-  g.add(donut);
-
-  const sprinkleColors = [0xffe45e,0x5ed6ff,0x7bd67a,0xff6f91,0xffffff];
-  for(let i=0;i<14;i++){
-    const angle = Math.random()*Math.PI*2;
-    const radius = 0.3+Math.random()*0.5;
-    const spr = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.12,5), new THREE.MeshStandardMaterial({color:sprinkleColors[i%sprinkleColors.length]}));
-    spr.position.set(Math.cos(angle)*radius, 0.68+Math.random()*0.08, Math.sin(angle)*radius);
-    spr.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-    g.add(spr);
-  }
-
-  const eyeMat = new THREE.MeshBasicMaterial({color:0x2a2a2a});
-  [-0.15,0.15].forEach(ex=>{
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), eyeMat);
-    eye.position.set(ex,0.5,0.75);
-    g.add(eye);
-  });
-  return g;
-}
-
-function buildTartPrincess(){
-  const g = new THREE.Group();
-  const crust = new THREE.Mesh(new THREE.CylinderGeometry(0.65,0.7,0.22,14), new THREE.MeshStandardMaterial({color:0xd9a066, flatShading:true}));
-  crust.position.y = 0.11; crust.castShadow = true;
-  g.add(crust);
-
-  const cream = new THREE.Mesh(new THREE.SphereGeometry(0.5,12,8,0,Math.PI*2,0,Math.PI/2), new THREE.MeshStandardMaterial({color:0xfff6e8, flatShading:true}));
-  cream.position.y = 0.22; cream.castShadow = true;
-  g.add(cream);
-
-  const berryMat = new THREE.MeshStandardMaterial({color:0xd6304a, flatShading:true});
-  for(let i=0;i<6;i++){
-    const angle = (i/6)*Math.PI*2;
-    const berry = new THREE.Mesh(new THREE.ConeGeometry(0.11,0.22,8), berryMat);
-    berry.position.set(Math.cos(angle)*0.28, 0.55, Math.sin(angle)*0.28);
-    berry.rotation.x = Math.PI;
-    berry.castShadow = true;
-    g.add(berry);
-  }
-  const crownBerry = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.2,8), berryMat);
-  crownBerry.position.y = 0.72;
-  crownBerry.rotation.x = Math.PI;
-  g.add(crownBerry);
-
-  const eyeMat = new THREE.MeshBasicMaterial({color:0x2a2a2a});
-  [-0.16,0.16].forEach(ex=>{
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), eyeMat);
-    eye.position.set(ex,0.32,0.66);
-    g.add(eye);
-  });
-  return g;
-}
-
-const ENEMY_TYPES = [
-  { name:'チョコおばけ',   color:0x4a2c17, build:buildChocoGhost,   baseHp:28, atk:4, catchMod:1.3 },
-  { name:'ホールケーキ王', color:0xe0b83a, build:buildCakeKing,     baseHp:60, atk:8, catchMod:0.6 },
-  { name:'ドーナツリング', color:0xe8a0c0, build:buildDonutRing,    baseHp:32, atk:5, catchMod:1.2 },
-  { name:'いちごタルト姫', color:0xd6304a, build:buildTartPrincess, baseHp:38, atk:6, catchMod:1.0 },
-];
-
-const enemies = []; // {mesh, type, hp, maxHp, alive, wanderTarget, wanderTimer}
-
-function spawnEnemy(x,z){
-  const type = ENEMY_TYPES[Math.floor(Math.random()*ENEMY_TYPES.length)];
-  const mesh = type.build();
-  mesh.scale.set(1.3,1.3,1.3);
-  mesh.position.set(x, 0, z);
-  scene.add(mesh);
-
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), new THREE.MeshBasicMaterial({color:0xffe45e}));
-  marker.position.y = 2.1;
-  mesh.add(marker);
-
-  enemies.push({
-    mesh, type,
-    hp: type.baseHp, maxHp: type.baseHp,
-    alive: true,
-    wanderTarget: new THREE.Vector3(x,0,z),
-    wanderTimer: 0,
-  });
-}
-
-/* =========================================================
-   パーティ管理 + フィールドでの追従
-========================================================= */
-const TRAINER = { name:'あなた', color:0x2f6fd0, hp:40, maxHp:40, atk:7, isTrainer:true };
-const party = []; // {name, color, hp, maxHp, atk, typeRef}
-const MAX_PARTY = 6;
-const fieldPartyModels = []; // partyと同じ並び順で追従用モデルを持つ
-
-function getAllFighters(){ return [TRAINER, ...party]; }
-
-function updatePartyPanel(){
-  document.getElementById('party-count').textContent = party.length;
-  const list = document.getElementById('party-list');
-  const rows = getAllFighters().map(p => `
-    <div class="party-member">
-      <div class="party-dot" style="background:#${p.color.toString(16).padStart(6,'0')}"></div>
-      <span>${p.name}${p.hp<=0?' (ひんし)':''}</span>
-    </div>
-  `).join('');
-  list.innerHTML = rows || '<span style="color:#999;">まだ誰もいない…</span>';
-}
-
-function addFieldFollower(type){
-  const m = type.build();
-  m.scale.set(0.65,0.65,0.65);
-  const angle = player.rotation.y;
-  const behindDist = 1.3 * (fieldPartyModels.length + 1);
-  m.position.set(
-    player.position.x - Math.sin(angle)*behindDist,
-    0,
-    player.position.z - Math.cos(angle)*behindDist
-  );
-  scene.add(m);
-  fieldPartyModels.push(m);
-}
-
-const FOLLOW_GAP = 1.3;
-const FOLLOW_SPEED = PLAYER_SPEED * 1.15;
-
-function updateFieldFollowers(dt){
-  let leaderPos = player.position;
-  for(const model of fieldPartyModels){
-    const dx = leaderPos.x - model.position.x;
-    const dz = leaderPos.z - model.position.z;
-    const dist = Math.hypot(dx,dz);
-    if(dist > FOLLOW_GAP){
-      const move = Math.min(FOLLOW_SPEED*dt, dist-FOLLOW_GAP);
-      model.position.x += (dx/dist)*move;
-      model.position.z += (dz/dist)*move;
-      model.rotation.y = Math.atan2(dx,dz);
-    }
-    model.position.y = Math.sin(performance.now()/400 + model.id)*0.05;
-    leaderPos = model.position;
-  }
-}
-
-function showToast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.opacity = '1';
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(()=> t.style.opacity = '0', 2200);
-}
-
-/* =========================================================
-   バトル用ミニ3Dステージ(敵が正面奥、パーティは手前に並ぶ)
-========================================================= */
-const battleCanvas = document.getElementById('battle-canvas');
-const battleScene = new THREE.Scene();
-const battleCamera = new THREE.PerspectiveCamera(42, 1, 0.1, 50);
-battleCamera.position.set(0, 2.5, 4.6);
-battleCamera.lookAt(0, 1.0, -1.2);
-const battleRenderer = new THREE.WebGLRenderer({ canvas: battleCanvas, antialias:true, alpha:true });
-
-const battleHemi = new THREE.HemisphereLight(0xffffff, 0xffd9ec, 1.0);
-battleScene.add(battleHemi);
-const battleSun = new THREE.DirectionalLight(0xffffff, 0.8);
-battleSun.position.set(3,5,4);
-battleScene.add(battleSun);
-const battleFloor = new THREE.Mesh(new THREE.CircleGeometry(3.6,24), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.35}));
-battleFloor.rotation.x = -Math.PI/2;
-battleFloor.position.z = -0.5;
-battleScene.add(battleFloor);
-
-function resizeBattleCanvas(){
-  const w = battleCanvas.clientWidth || 460;
-  const h = battleCanvas.clientHeight || 210;
-  battleRenderer.setSize(w, h, false);
-  battleCamera.aspect = w / h;
-  battleCamera.updateProjectionMatrix();
-}
-
-let allyModels = []; // 各要素.userData.fighter で対応するfighterを参照
-let enemyBattleModel = null;
-
-function clearBattleModels(){
-  allyModels.forEach(m => battleScene.remove(m));
-  allyModels = [];
-  if(enemyBattleModel){ battleScene.remove(enemyBattleModel); enemyBattleModel = null; }
-}
-
-function placeBattleModels(){
-  clearBattleModels();
-  const fighters = getAllFighters();
-  const n = fighters.length;
-  const spacing = Math.min(1.05, 4.6 / Math.max(n,1));
-  const scale = 0.6;
-
-  fighters.forEach((f, i) => {
-    const m = f.isTrainer ? buildTrainerModel() : f.typeRef.build();
-    m.scale.set(scale, scale, scale);
-    const xPos = (i - (n-1)/2) * spacing;
-    m.position.set(xPos, 0, 1.4);
-    m.rotation.y = Math.PI; // 奥の敵の方を向く(カメラには背中側が見える)
-    m.userData.fighter = f;
-    m.userData.baseScale = scale;
-    battleScene.add(m);
-    allyModels.push(m);
-  });
-
-  // 敵は正面(カメラ側)を向いて奥に立つ
-  enemyBattleModel = battleState.enemy.type.build();
-  enemyBattleModel.position.set(0, 0, -1.6);
-  enemyBattleModel.rotation.y = 0;
-  const bScale = battleState.enemy.type.battleScale || 1;
-  enemyBattleModel.scale.set(bScale, bScale, bScale);
-  enemyBattleModel.userData.baseScale = bScale;
-  battleScene.add(enemyBattleModel);
-}
-
-// 攻撃モーション: 敵側でも味方側でも同じ関数を呼び出して再生する
-function triggerAttackMotion(mesh, dir){
-  if(!mesh) return;
-  mesh.userData.atkAnim = { start: performance.now(), duration: 480, dir, baseX: mesh.position.x, baseZ: mesh.position.z };
-}
-function triggerHitReaction(mesh){
-  if(!mesh) return;
-  mesh.userData.hitAnim = { start: performance.now(), duration: 280 };
-}
-
-function updateAttackMotions(){
-  const all = enemyBattleModel ? [...allyModels, enemyBattleModel] : [...allyModels];
-  all.forEach(mesh => {
-    if(!mesh) return;
-    const baseScale = mesh.userData.baseScale || 1;
-    if(mesh.userData.atkAnim){
-      const a = mesh.userData.atkAnim;
-      const t = Math.min(1, (performance.now() - a.start) / a.duration);
-      const lunge = Math.sin(t * Math.PI) * 0.6;
-      mesh.position.x = a.baseX + a.dir.x * lunge;
-      mesh.position.z = a.baseZ + a.dir.z * lunge;
-      const s = baseScale * (1 + Math.sin(t * Math.PI) * 0.1);
-      mesh.scale.set(s, s, s);
-      if(t >= 1){
-        mesh.position.x = a.baseX; mesh.position.z = a.baseZ;
-        mesh.scale.set(baseScale, baseScale, baseScale);
-        delete mesh.userData.atkAnim;
-      }
-    } else if(mesh.userData.hitAnim){
-      const h = mesh.userData.hitAnim;
-      const t = Math.min(1, (performance.now() - h.start) / h.duration);
-      const s = baseScale * (1 - Math.sin(t * Math.PI) * 0.15);
-      mesh.scale.set(s, s, s);
-      if(t >= 1){
-        mesh.scale.set(baseScale, baseScale, baseScale);
-        delete mesh.userData.hitAnim;
-      }
-    } else {
-      mesh.position.y = Math.sin(performance.now()/450 + mesh.id) * 0.05;
-    }
-  });
-}
-
-/* =========================================================
-   バトルシステム(全員参加)
-========================================================= */
-let battleState = null; // {enemy}
-const ENCOUNTER_DIST = 1.6;
-
-const overlay = document.getElementById('battle-overlay');
-const btnAttack = document.getElementById('btn-attack');
-const btnCapture = document.getElementById('btn-capture');
-const btnRun = document.getElementById('btn-run');
-const battleLog = document.getElementById('battle-log');
-
-function log(msg){
-  battleLog.innerHTML += `<div>${msg}</div>`;
-  battleLog.scrollTop = battleLog.scrollHeight;
-}
-function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
-
-function setActionButtons(enabled){
-  btnAttack.disabled = !enabled;
-  btnCapture.disabled = !enabled;
-  btnRun.disabled = !enabled;
-}
-
-function startBattle(enemy){
-  battleState = { enemy };
-  document.getElementById('battle-title').textContent = enemy.isBoss
-    ? `ボスが たちふさがった！ ${enemy.type.name}`
-    : `やせいの ${enemy.type.name} があらわれた！`;
-  document.getElementById('enemy-name').textContent = enemy.type.name + (enemy.isBoss ? '(ボス)' : '');
-  battleLog.innerHTML = '戦闘開始！';
-  overlay.style.display = 'flex';
-  resizeBattleCanvas();
-  placeBattleModels();
-  updateHpBar();
-  updateAllyHpList();
-  setActionButtons(true);
-}
-
-function updateHpBar(){
-  const e = battleState.enemy;
-  const pct = Math.max(0, e.hp / e.maxHp);
-  const bar = document.getElementById('enemy-hpbar');
-  bar.style.width = (pct*100) + '%';
-  bar.className = 'hpbar-inner' + (pct < 0.25 ? ' critical' : pct < 0.5 ? ' low' : '');
-  document.getElementById('enemy-hp-text').textContent = `${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}`;
-}
-
-function updateAllyHpList(){
-  const el = document.getElementById('ally-hp-list');
-  el.innerHTML = getAllFighters().map(f => {
-    const pct = Math.max(0, f.hp / f.maxHp);
-    const cls = pct < 0.25 ? 'critical' : pct < 0.5 ? 'low' : '';
-    return `
-      <div class="ally-card${f.hp<=0?' fainted':''}">
-        <div class="ally-card-dot" style="background:#${f.color.toString(16).padStart(6,'0')}"></div>
-        <div class="ally-card-name">${f.name}</div>
-        <div class="hpbar-outer"><div class="hpbar-inner ${cls}" style="width:${pct*100}%"></div></div>
-        <div class="ally-card-atk">HP ${Math.max(0,Math.ceil(f.hp))}/${f.maxHp}</div>
-      </div>`;
-  }).join('');
-}
-
-function endBattle(){
-  overlay.style.display = 'none';
-  clearBattleModels();
-  battleState = null;
-  updatePartyPanel();
-}
-
-function findModelFor(fighter){
-  return allyModels.find(m => m.userData.fighter === fighter);
-}
-
-function enemyCounterattack(){
-  if(!battleState) return;
-  const alive = getAllFighters().filter(f => f.hp > 0);
-  if(alive.length === 0) return;
-  const target = alive[Math.floor(Math.random()*alive.length)];
-  const targetModel = findModelFor(target);
-  triggerAttackMotion(enemyBattleModel, {x:0, z:1});
-  setTimeout(() => {
-    if(!battleState) return;
-    const e = battleState.enemy;
-    const dmg = Math.max(1, Math.round((e.type.atk||5) * (0.8 + Math.random()*0.4)));
-    target.hp = Math.max(0, target.hp - dmg);
-    log(`${e.type.name} の こうげき！ ${target.name} に ${dmg} のダメージ！`);
-    triggerHitReaction(targetModel);
-    updateAllyHpList();
-    if(target.hp <= 0){
-      log(`${target.name} は たおれた！`);
-    }
-    const stillAlive = getAllFighters().some(f => f.hp > 0);
-    if(!stillAlive){
-      log('みんな たおれてしまった…しまに はこばれた…');
-      setActionButtons(false);
-      setTimeout(() => {
-        endBattle();
-        openIslandOverlay();
-      }, 1600);
-    } else {
-      setActionButtons(true);
-    }
-  }, 280);
-}
-
-btnAttack.addEventListener('click', async () => {
-  if(!battleState || btnAttack.disabled) return;
-  setActionButtons(false);
-
-  const fighters = getAllFighters().filter(f => f.hp > 0);
-  for(const f of fighters){
-    if(!battleState) return;
-    const model = findModelFor(f);
-    triggerAttackMotion(model, {x:0, z:-1});
-    await wait(180);
-    if(!battleState) return;
-
-    const e = battleState.enemy;
-    const dmg = Math.max(1, Math.round(f.atk + Math.random()*5));
-    e.hp -= dmg;
-    log(`${f.name} の こうげき！ ${e.type.name} に ${dmg} のダメージ！`);
-    triggerHitReaction(enemyBattleModel);
-    updateHpBar();
-
-    if(e.hp <= 0){
-      log(`${e.type.name} をたおした！`);
-      e.alive = false;
-      scene.remove(e.mesh);
-      if(e.isBoss){
-        log('ステージクリア！');
-        setTimeout(() => {
-          endBattle();
-          showToast('ステージクリア！ しまにもどってきた');
-          openIslandOverlay();
-        }, 1000);
-      } else {
-        setTimeout(endBattle, 900);
-      }
-      return;
-    }
-    await wait(200);
-  }
-
-  enemyCounterattack();
-});
-
-btnCapture.addEventListener('click', () => {
-  if(!battleState || btnCapture.disabled) return;
-  setActionButtons(false);
-  const e = battleState.enemy;
-  if(party.length >= MAX_PARTY){
-    log('パーティがいっぱいだ！これ以上つかまえられない。');
-    setActionButtons(true);
-    return;
-  }
-  const hpPct = Math.max(0, e.hp / e.maxHp);
-  const baseChance = 0.15 + (1 - hpPct) * 0.65;
-  const chance = Math.min(0.95, baseChance * e.type.catchMod);
-  log(`ボールをなげた！ (成功率 約${Math.round(chance*100)}%)`);
-
-  document.getElementById('catch-flash').style.opacity = '0.6';
-  setTimeout(()=> document.getElementById('catch-flash').style.opacity = '0', 150);
-
-  const success = Math.random() < chance;
-  setTimeout(() => {
-    if(!battleState) return;
-    if(success){
-      log(`やった！ ${e.type.name} をつかまえた！`);
-      party.push({
-        name: e.type.name,
-        color: e.type.color,
-        hp: Math.round(e.type.baseHp * 0.8),
-        maxHp: e.type.baseHp,
-        atk: Math.round(4 + e.type.baseHp / 10),
-        typeRef: e.type,
-      });
-      addFieldFollower(e.type);
-      updatePartyPanel();
-      showToast(`${e.type.name} が なかまになった！`);
-      e.alive = false;
-      scene.remove(e.mesh);
-      setTimeout(endBattle, 900);
-    } else {
-      log(`あ！ボールから ${e.type.name} が でてしまった…`);
-      enemyCounterattack();
-    }
-  }, 500);
-});
-
-btnRun.addEventListener('click', () => {
-  if(!battleState || btnRun.disabled) return;
-  setActionButtons(false);
-  log('うまく にげきれた！');
-  setTimeout(endBattle, 500);
-});
-
-/* =========================================================
-   カメラ追従(見下ろし・フィールド探索時)
-========================================================= */
-function updateCamera(){
-  const camOffset = new THREE.Vector3(0, 9, 7);
-  const targetPos = player.position.clone().add(camOffset);
-  camera.position.lerp(targetPos, 0.12);
-  camera.lookAt(player.position.clone().add(new THREE.Vector3(0,0.6,0)));
-}
-
-/* =========================================================
-   メインループ
-========================================================= */
-const clock = new THREE.Clock();
-
-function checkCollision(x,z, radius){
-  for(const o of obstacles){
-    if(Math.hypot(x-o.x, z-o.z) < radius + o.r) return true;
-  }
-  return false;
-}
-
-function animate(){
-  requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
-
-  if(islandOverlayOpen){
-    updateIslandPlayer(dt);
-    islandRenderer.render(islandScene, islandCamera);
-  } else if(!battleState){
-    let dx=0, dz=0;
-    if(keys['w']||keys['arrowup']) dz -= 1;
-    if(keys['s']||keys['arrowdown']) dz += 1;
-    if(keys['a']||keys['arrowleft']) dx -= 1;
-    if(keys['d']||keys['arrowright']) dx += 1;
-
-    if(dx!==0 || dz!==0){
-      const len = Math.hypot(dx,dz);
-      dx/=len; dz/=len;
-      const nx = player.position.x + dx*PLAYER_SPEED*dt;
-      const nz = player.position.z + dz*PLAYER_SPEED*dt;
-      if(!checkCollision(nx,nz,0.5) && !collidesWithWalls(nx,nz,0.4)){
-        player.position.x = nx;
-        player.position.z = nz;
-      }
-      playerAngle = Math.atan2(dx,dz);
-      player.rotation.y = playerAngle;
-    }
-    updateWalkAnimation(player, dt, dx!==0 || dz!==0);
-
-    updateFieldFollowers(dt);
-
-    for(const e of enemies){
-      if(!e.alive) continue;
-      e.wanderTimer -= dt;
-      if(e.wanderTimer <= 0){
-        e.wanderTimer = 2 + Math.random()*3;
-        e.wanderTarget.set(
-          e.mesh.position.x + (Math.random()-0.5)*6,
-          0,
-          e.mesh.position.z + (Math.random()-0.5)*6
-        );
-      }
-      const dir = new THREE.Vector3(e.wanderTarget.x - e.mesh.position.x, 0, e.wanderTarget.z - e.mesh.position.z);
-      if(dir.length() > 0.1){
-        dir.normalize();
-        const enx = e.mesh.position.x + dir.x * 1.2 * dt;
-        const enz = e.mesh.position.z + dir.z * 1.2 * dt;
-        if(!collidesWithWalls(enx, enz, 0.65)){
-          e.mesh.position.x = enx;
-          e.mesh.position.z = enz;
-        } else {
-          e.wanderTimer = 0; // 壁にぶつかったら次のフレームで新しい目標を選び直す
-        }
-        e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-      }
-      e.mesh.position.y = Math.sin(performance.now()/400 + e.mesh.id) * 0.08;
-
-      const dist = Math.hypot(player.position.x - e.mesh.position.x, player.position.z - e.mesh.position.z);
-      if(dist < ENCOUNTER_DIST){
-        startBattle(e);
-      }
-    }
-
-    for(const chest of chests){
-      if(chest.opened) continue;
-      const cd = Math.hypot(player.position.x - chest.mesh.position.x, player.position.z - chest.mesh.position.z);
-      if(cd < 1.2){
-        openChest(chest);
-      }
-    }
-  } else {
-    updateAttackMotions();
-    battleRenderer.render(battleScene, battleCamera);
-  }
-
-  updateCamera();
-  renderer.render(scene, camera);
-}
-animate();
-</script>
 </body>
 </html>

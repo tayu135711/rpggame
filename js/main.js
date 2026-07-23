@@ -20,6 +20,21 @@ renderer.shadowMap.enabled = true;
 container.appendChild(renderer.domElement);
 
 /* ---------------------------------------------------------
+   ポストプロセス(ブルーム)
+   捕獲マーカー・炎などの明るい"発光"素材だけをふわっと光らせる。
+   閾値を高めにして、空や地面などの中間輝度までは光らないよう絞っている。
+--------------------------------------------------------- */
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(new THREE.RenderPass(scene, camera));
+const bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.6,   // strength
+  0.35,  // radius
+  0.82   // threshold — 空の輝度(約0.77)より上、黄色いマーカー等(約0.88)より下に設定
+);
+composer.addPass(bloomPass);
+
+/* ---------------------------------------------------------
    ライティング
 --------------------------------------------------------- */
 const hemi = new THREE.HemisphereLight(0xffffff, 0x556b2f, 0.9);
@@ -66,6 +81,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
   resizeBattleCanvas();
   resizeIslandCanvas();
 });
@@ -186,7 +202,7 @@ function animate() {
   }
 
   updateCamera();
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 /* ---------------------------------------------------------

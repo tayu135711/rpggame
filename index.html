@@ -60,17 +60,32 @@
       </div>
     </div>
 
-    <!-- コマンドキュー -->
+    <!-- 行動キュー (このラウンドでこれから行動するメンバー) -->
     <div id="battle-queue-wrap">
-      <span class="queue-label display">ターン属性</span>
+      <span class="queue-label display">こうどうじゅん</span>
       <div id="battle-queue-list" class="queue-list"></div>
     </div>
 
-    <!-- コマンドボタン -->
+    <!-- 現在行動中のキャラ -->
+    <div id="active-actor-label"></div>
+
+    <!-- コマンドボタン (行動中のキャラによって出し分ける) -->
     <div id="battle-actions">
-      <button class="btn cmd" id="btn-active-cmd">
-        <span class="cmd-icon" id="cmd-active-icon"></span>
-        <span id="cmd-active-text">属性こうげき</span>
+      <button class="btn cmd" id="btn-normal-atk">
+        <span class="cmd-icon icon-attack"></span>
+        <span>つうじょうこうげき</span>
+      </button>
+      <button class="btn cmd" id="btn-element-atk">
+        <span class="cmd-icon icon-attack" id="element-atk-icon"></span>
+        <span id="element-atk-text">属性こうげき</span>
+      </button>
+      <button class="btn cmd" id="btn-skill">
+        <span class="cmd-icon icon-attack" id="skill-icon"></span>
+        <span id="skill-text">とくぎ</span>
+      </button>
+      <button class="btn cmd capture-btn" id="btn-capture">
+        <span class="cmd-icon icon-capture"></span>
+        <span>つかまえる</span>
       </button>
       <button class="btn cmd" id="btn-run" style="background:#4a7ca8;">
         <span class="cmd-icon icon-run"></span>にげる
@@ -132,12 +147,12 @@
 ======================================================== -->
 <div id="gacha-modal">
   <div id="gacha-box" class="tag-panel">
-    <div class="modal-title display">ガチャ</div>
+    <div class="modal-title display">そうびガチャ</div>
     <div id="gacha-tabs">
-      <button class="btn" id="tab-denpa">でんぱガチャ (ダイヤ5)</button>
       <button class="btn" id="tab-equip">そうびガチャ (コイン30)</button>
+      <button class="btn" id="tab-premium">プレミアム (ダイヤ8)</button>
     </div>
-    <div id="gacha-result">でんぱガチャ: でんぱ人間が1体でてくるよ</div>
+    <div id="gacha-result">そうびガチャ: コインを30消費して、装備を1つひくよ</div>
     <button class="btn capture" id="btn-gacha-pull">ひく</button>
     <button class="btn" id="btn-gacha-close">とじる</button>
   </div>

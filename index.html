@@ -65,6 +65,7 @@
     <!-- バトル用ミニ3Dビュー -->
     <div id="battle-stage-wrap">
       <canvas id="battle-canvas"></canvas>
+      <div id="battle-flash"></div>
     </div>
 
     <!-- 敵HPバー -->
@@ -105,6 +106,10 @@
         <span class="cmd-icon icon-capture"></span>
         <span>つかまえる</span>
       </button>
+      <button class="btn cmd defend-btn" id="btn-defend">
+        <span class="cmd-icon icon-shield"></span>
+        <span>ぼうぎょ</span>
+      </button>
       <button class="btn cmd" id="btn-run" style="background:#4a7ca8;">
         <span class="cmd-icon icon-run"></span>にげる
       </button>
@@ -141,6 +146,7 @@
   <div id="island-menu-buttons">
     <button class="btn" id="btn-open-gacha">ガチャ</button>
     <button class="btn" id="btn-open-party">パーティ</button>
+    <button class="btn" id="btn-save-game" style="background:var(--defend);">セーブ</button>
   </div>
 
   <!-- 島3Dビュー -->
@@ -204,8 +210,9 @@
      4. maze.js       … 迷路生成・ステージセットアップ
      5. party.js      … パーティ管理・追従
      6. island.js     … 島シーン・ガチャ・通貨 (scene は main.js より先に必要なためDOMは参照するが、sceneはmain.jsで初期化後に使用)
-     7. battle.js     … バトルシステム
-     8. main.js       … メインシーン初期化・プレイヤー・ループ
+     7. save.js       … セーブ/ロード (localStorage)
+     8. battle.js     … バトルシステム
+     9. main.js       … メインシーン初期化・プレイヤー・ループ
 ======================================================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ポストプロセス(ブルーム)用アドオン -->
@@ -220,6 +227,7 @@
 <script src="js/maze.js"></script>
 <script src="js/party.js"></script>
 <script src="js/island.js"></script>
+<script src="js/save.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/main.js"></script>
 

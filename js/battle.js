@@ -10,8 +10,10 @@
 const battleCanvas   = document.getElementById('battle-canvas');
 const battleScene    = new THREE.Scene();
 const battleCamera   = new THREE.PerspectiveCamera(42, 1, 0.1, 50);
-battleCamera.position.set(0, 2.5, 4.6);
-battleCamera.lookAt(0, 1.0, -1.2);
+const battleCameraBase = new THREE.Vector3(0, 2.5, 4.6);
+const battleCameraLookAt = new THREE.Vector3(0, 1.0, -1.2);
+battleCamera.position.copy(battleCameraBase);
+battleCamera.lookAt(battleCameraLookAt);
 const battleRenderer = new THREE.WebGLRenderer({ canvas: battleCanvas, antialias: true, alpha: true });
 
 // ライティング
@@ -139,6 +141,49 @@ function placeBattleModels() {
 }
 
 /* ---------------------------------------------------------
+   演出: カメラシェイク & 画面フラッシュ
+   (動画のような迫力を出すため、被弾・とくぎ発動時にカメラを
+    ゆらし、白/金色のフラッシュを一瞬入れる)
+--------------------------------------------------------- */
+const battleFlashEl = document.getElementById('battle-flash');
+let camShakeUntil = 0;
+let camShakeMag   = 0;
+const CAM_SHAKE_DURATION = 220;
+
+function triggerCameraShake(mag = 0.10) {
+  camShakeMag   = mag;
+  camShakeUntil = performance.now() + CAM_SHAKE_DURATION;
+}
+
+function updateCameraShake() {
+  const now = performance.now();
+  if (now < camShakeUntil) {
+    const t   = (camShakeUntil - now) / CAM_SHAKE_DURATION;
+    const mag = camShakeMag * t;
+    battleCamera.position.set(
+      battleCameraBase.x + (Math.random() - 0.5) * mag,
+      battleCameraBase.y + (Math.random() - 0.5) * mag,
+      battleCameraBase.z + (Math.random() - 0.5) * mag * 0.5
+    );
+  } else {
+    battleCamera.position.copy(battleCameraBase);
+  }
+  battleCamera.lookAt(battleCameraLookAt);
+}
+
+/** 被弾フラッシュ (白=通常ヒット、金=こうかばつぐん) */
+function triggerBattleFlash(color = '#ffffff', peak = 0.45) {
+  if (!battleFlashEl) return;
+  battleFlashEl.style.transition = 'none';
+  battleFlashEl.style.background = color;
+  battleFlashEl.style.opacity    = String(peak);
+  requestAnimationFrame(() => {
+    battleFlashEl.style.transition = 'opacity 0.32s ease-out';
+    battleFlashEl.style.opacity    = '0';
+  });
+}
+
+/* ---------------------------------------------------------
    アタックモーション
 --------------------------------------------------------- */
 function triggerAttackMotion(mesh, dir) {
@@ -152,9 +197,18 @@ function triggerAttackMotion(mesh, dir) {
   };
 }
 
-function triggerHitReaction(mesh) {
+function triggerHitReaction(mesh, opts) {
   if (!mesh) return;
   mesh.userData.hitAnim = { start: performance.now(), duration: 280 };
+  const big = opts && opts.big;
+  triggerCameraShake(big ? 0.22 : 0.11);
+  triggerBattleFlash(big ? '#ffe36b' : '#ffffff', big ? 0.65 : 0.4);
+}
+
+/** ぼうぎょ演出 (自分の位置で少し身をかがめる) */
+function triggerDefendMotion(mesh) {
+  if (!mesh) return;
+  mesh.userData.defendAnim = { start: performance.now(), duration: 520 };
 }
 
 /** 毎フレーム呼び出してバトルモデルのアニメを更新 */
@@ -186,11 +240,24 @@ function updateAttackMotions() {
         mesh.scale.set(baseScale, baseScale, baseScale);
         delete mesh.userData.hitAnim;
       }
+    } else if (mesh.userData.defendAnim) {
+      const d = mesh.userData.defendAnim;
+      const t = Math.min(1, (performance.now() - d.start) / d.duration);
+      const dip = Math.sin(t * Math.PI) * 0.14;
+      const s   = baseScale * (1 + dip * 0.4);
+      mesh.scale.set(s, s * (1 - dip * 0.5), s);
+      mesh.position.y = -dip * 0.5;
+      if (t >= 1) {
+        mesh.scale.set(baseScale, baseScale, baseScale);
+        mesh.position.y = 0;
+        delete mesh.userData.defendAnim;
+      }
     } else {
       // 待機中のふわふわ浮遊
       mesh.position.y = Math.sin(performance.now() / 450 + mesh.id) * 0.05;
     }
   });
+  updateCameraShake();
 }
 
 /* ---------------------------------------------------------
@@ -202,6 +269,7 @@ const btnNormalAtk    = document.getElementById('btn-normal-atk');
 const btnElementAtk   = document.getElementById('btn-element-atk');
 const btnSkill        = document.getElementById('btn-skill');
 const btnCapture      = document.getElementById('btn-capture');
+const btnDefend       = document.getElementById('btn-defend');
 const btnRun          = document.getElementById('btn-run');
 const queueListEl     = document.getElementById('battle-queue-list');
 const activeActorLabel = document.getElementById('active-actor-label');
@@ -223,6 +291,7 @@ function setActionButtons(enabled) {
   btnElementAtk.disabled = !enabled;
   btnSkill.disabled      = !enabled;
   btnCapture.disabled    = !enabled;
+  btnDefend.disabled     = !enabled;
   btnRun.disabled        = !enabled;
 }
 
@@ -236,6 +305,8 @@ function updateCommandUI() {
 
   // 通常こうげきは誰でも共通
   btnNormalAtk.style.display = 'flex';
+  // ぼうぎょも誰でも共通で選べる
+  btnDefend.style.display = 'flex';
 
   if (isTrainer) {
     // プレイヤー: 通常こうげき + つかまえる (+ Lv.10でとくぎ)
@@ -336,6 +407,10 @@ function startBattle(enemy) {
 /** 新しいラウンドを開始する (パーティ全員の行動キューを組み直す) */
 function startRound() {
   if (!battleState) return;
+  // 前ラウンドで発動した「ぼうぎょ」の効果はここでリセットする
+  // (敵の反撃 → finishEnemyTurn → startRound の順で呼ばれるため、
+  //  防御の効果が実際に使われた"後"にリセットされる)
+  getAllFighters().forEach(f => { f.defending = false; });
   turnQueue = getAllFighters().filter(f => f.hp > 0);
   nextActor();
 }
@@ -408,8 +483,15 @@ function enemyCounterattack() {
     if (e.atkDebuffTurns > 0) dmg = Math.round(dmg * e.atkDebuffMult);
     if (skill) dmg = Math.round(dmg * skill.dmgMult);
 
+    let defended = false;
+    if (target.defending) {
+      dmg = Math.max(1, Math.round(dmg * DEFEND_DAMAGE_REDUCTION));
+      defended = true;
+    }
+
     target.hp = Math.max(0, target.hp - dmg);
     log(`${e.type.name} の ${skill ? skill.name : 'こうげき'}！ ${target.name} に ${dmg} のダメージ！`);
+    if (defended) log(`<span style="color:var(--defend);">${target.name} は ぼうぎょして ダメージを おさえた！</span>`);
     triggerHitReaction(targetModel);
     updateAllyHpList();
 
@@ -491,6 +573,23 @@ btnCapture.addEventListener('click', () => {
   executeCapture();
 });
 
+btnDefend.addEventListener('click', async () => {
+  if (!battleState || btnDefend.disabled || !activeFighter) return;
+  setActionButtons(false);
+  await executeDefend(activeFighter);
+});
+
+/** ぼうぎょの実行 (誰でも選べる。このラウンドの敵の攻撃で狙われた際の被ダメージを軽減する) */
+async function executeDefend(fighter) {
+  const model = findModelFor(fighter);
+  triggerDefendMotion(model);
+  fighter.defending = true;
+  log(`${fighter.name} は みをまもっている！`);
+  await wait(320);
+  if (!battleState) return;
+  nextActor();
+}
+
 btnSkill.addEventListener('click', async () => {
   if (!battleState || btnSkill.disabled || !activeFighter) return;
   if ((activeFighter.level || 1) < SKILL_UNLOCK_LEVEL) return;
@@ -523,7 +622,7 @@ async function executeSkillAttack(fighter) {
   } else if (affinity < 1.0) {
     log('<span style="color:var(--gold);">こうかは いまひとつ のようだ…</span>');
   }
-  triggerHitReaction(enemyBattleModel);
+  triggerHitReaction(enemyBattleModel, { big: true });
   updateHpBar();
 
   if (skill.healPct) {
@@ -593,7 +692,7 @@ async function executeSingleAttack(fighter, element) {
 
   e.hp -= dmg;
   log(`${e.type.name} に ${dmg} のダメージ！`);
-  triggerHitReaction(enemyBattleModel);
+  triggerHitReaction(enemyBattleModel, { big: affinity > 1.0 });
   updateHpBar();
 
   if (e.hp <= 0) {
@@ -628,13 +727,17 @@ function handleEnemyDefeated() {
   if (e.isBoss) {
     log('ステージクリア！');
 
-    // ステージ2のロック解除
-    const stage2 = STAGES.find(st => st.no === 2);
-    if (stage2) {
-      stage2.unlocked = true;
+    // 次のステージのロック解除 (currentStageNoを基準に汎用化。2026/07/24修正: 旧実装はステージ2決め打ちだった)
+    const nextStage = STAGES.find(st => st.no === currentStageNo + 1);
+    if (nextStage && !nextStage.unlocked) {
+      nextStage.unlocked = true;
       const dots = document.querySelectorAll('.stage-dot');
-      if (dots[1]) dots[1].classList.remove('locked');
+      const dot  = dots[nextStage.no - 1];
+      if (dot) dot.classList.remove('locked');
     }
+
+    // ステージクリアは進行の節目なので自動セーブしておく
+    if (typeof saveGame === 'function') saveGame(false);
 
     setTimeout(() => {
       endBattle();
@@ -704,6 +807,7 @@ function executeCapture() {
 
       e.alive = false;
       scene.remove(e.mesh);
+      if (typeof saveGame === 'function') saveGame(false);
       setTimeout(endBattle, 900);
     } else {
       log(`あ！ボールから ${e.type.name} が でてしまった…`);

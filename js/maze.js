@@ -182,6 +182,8 @@ const minimapZoomCtx      = minimapZoomCanvas ? minimapZoomCanvas.getContext('2d
 let currentMazeGrid = null;   // setupStage時点の grid (壁情報)
 let exploredCells   = [];     // [r][c] = true/false (訪れたことがあるか)
 let minimapZoomOpen  = false;
+/** 現在挑戦中のステージ番号 (2026/07/24 追加: ボス撃破時の次ステージ解放を汎用化するため) */
+let currentStageNo   = null;
 
 document.getElementById('btn-minimap-zoom').addEventListener('click', () => {
   minimapZoomOpen = true;
@@ -606,6 +608,7 @@ function setDungeonAtmosphere() {
    ステージ1: ケーキのしま
 --------------------------------------------------------- */
 function setupStage1() {
+  currentStageNo = 1;
   clearStageObjects();
   setupMazeFloor();
   setDungeonAtmosphere();
@@ -712,6 +715,7 @@ function setupStage1() {
    ステージ2: わがしのしま
 --------------------------------------------------------- */
 function setupStage2() {
+  currentStageNo = 2;
   clearStageObjects();
   setupMazeFloor();
   setDungeonAtmosphere();

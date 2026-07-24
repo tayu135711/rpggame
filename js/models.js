@@ -429,10 +429,115 @@ function buildMatchaRoll() {
   return g;
 }
 
+/* ---------------------------------------------------------
+   進化後モデル (Lv.20到達で見た目が強化される)
+--------------------------------------------------------- */
+/** 進化演出共通パーツ: 足元に属性カラーの光る輪をつける */
+function addAuraRing(g, color, y, radius) {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, 0.04, 8, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = y;
+  g.add(ring);
+  return ring;
+}
+
+/** チョコおばけ 進化形態: チョコキング (闇) */
+function buildChocoGhostEvolved() {
+  const g = buildChocoGhost();
+  g.scale.set(1.25, 1.25, 1.25);
+
+  const hornMat = new THREE.MeshStandardMaterial({ color: 0x1a0d08, flatShading: true });
+  [-0.22, 0.22].forEach(hx => {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.32, 6), hornMat);
+    horn.position.set(hx, 1.25, 0);
+    horn.rotation.z = hx > 0 ? -0.3 : 0.3;
+    horn.castShadow = true;
+    g.add(horn);
+  });
+
+  addAuraRing(g, 0x5a24a0, 0.02, 0.85);
+  return g;
+}
+
+/** ホールケーキ王 進化形態: ホールケーキ神皇 (光) */
+function buildCakeKingEvolved() {
+  const g = buildCakeKing();
+  g.scale.set(1.2, 1.25, 1.2);
+
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.04, 8, 24),
+    new THREE.MeshBasicMaterial({ color: 0xfff3b0 })
+  );
+  halo.position.y = 1.75;
+  g.add(halo);
+
+  addAuraRing(g, 0xb07800, 0.02, 0.95);
+  return g;
+}
+
+/** ドーナツリング 進化形態: ドーナツフレア (炎) */
+function buildDonutRingEvolved() {
+  const g = buildDonutRing();
+  g.scale.set(1.2, 1.2, 1.2);
+
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xff7a30 });
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 6), flameMat);
+    flame.position.set(Math.cos(angle) * 0.55, 0.5 + Math.sin(i) * 0.05, Math.sin(angle) * 0.55);
+    flame.rotation.x = Math.PI;
+    g.add(flame);
+  }
+
+  addAuraRing(g, 0xc8361a, 0.02, 0.85);
+  return g;
+}
+
+/** いちごタルト姫 進化形態: いちごタルト女王 (水) */
+function buildTartPrincessEvolved() {
+  const g = buildTartPrincess();
+  g.scale.set(1.2, 1.2, 1.2);
+
+  const tiaraMat = new THREE.MeshStandardMaterial({ color: 0x9fd6ff, metalness: 0.4, roughness: 0.3 });
+  const tiara = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 8, 16, Math.PI), tiaraMat);
+  tiara.rotation.x = Math.PI / 2;
+  tiara.position.y = 0.78;
+  g.add(tiara);
+
+  addAuraRing(g, 0x1460b0, 0.02, 0.8);
+  return g;
+}
+
+/** 抹茶ロール 進化形態: 抹茶ロール大樹 (自然) */
+function buildMatchaRollEvolved() {
+  const g = buildMatchaRoll();
+  g.scale.set(1.15, 1.3, 1.15);
+
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f9142, flatShading: true });
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.28, 5), leafMat);
+    leaf.position.set(Math.cos(angle) * 0.25, 0.95, Math.sin(angle) * 0.25);
+    leaf.rotation.x = Math.PI;
+    g.add(leaf);
+  }
+
+  addAuraRing(g, 0x246e2e, 0.02, 0.8);
+  return g;
+}
+
 const ENEMY_TYPES = [
-  { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,   baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark' },
-  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light' },
-  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,    baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire' },
-  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess, baseHp: 38, atk: 6, catchMod: 1.0, element: 'water' },
-  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature' },
+  { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,   baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark',
+    evolvedName: 'チョコキング',         evolvedBuild: buildChocoGhostEvolved },
+  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light',
+    evolvedName: 'ホールケーキ神皇',     evolvedBuild: buildCakeKingEvolved },
+  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,    baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire',
+    evolvedName: 'ドーナツフレア',       evolvedBuild: buildDonutRingEvolved },
+  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess, baseHp: 38, atk: 6, catchMod: 1.0, element: 'water',
+    evolvedName: 'いちごタルト女王',     evolvedBuild: buildTartPrincessEvolved },
+  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature',
+    evolvedName: '抹茶ロール大樹',       evolvedBuild: buildMatchaRollEvolved },
 ];

@@ -178,7 +178,7 @@ const gachaResultEl = document.getElementById('gacha-result');
 
 /** プレイヤーの所持装備リスト */
 const playerEquipInventory = [];
-let currentGachaTab = 'denpa';
+let currentGachaTab = 'equip';
 
 // 装備の形容詞マッピング
 const EQUIP_PREFIXES = {
@@ -190,8 +190,8 @@ const EQUIP_PREFIXES = {
 };
 
 document.getElementById('btn-open-gacha').addEventListener('click', () => {
-  currentGachaTab = 'denpa';
-  gachaResultEl.textContent     = 'でんぱガチャ: でんぱ人間が1体でてくるよ';
+  currentGachaTab = 'equip';
+  gachaResultEl.textContent = 'そうびガチャ: コインを30消費して、装備を1つひくよ';
   gachaModal.style.display = 'flex';
 });
 
@@ -199,92 +199,68 @@ document.getElementById('btn-gacha-close').addEventListener('click', () => {
   gachaModal.style.display = 'none';
 });
 
-document.getElementById('tab-denpa').addEventListener('click', () => {
-  currentGachaTab = 'denpa';
-  gachaResultEl.textContent = 'でんぱガチャ: でんぱ人間が1体でてくるよ';
-});
-
 document.getElementById('tab-equip').addEventListener('click', () => {
   currentGachaTab = 'equip';
   gachaResultEl.textContent = 'そうびガチャ: コインを30消費して、装備を1つひくよ';
 });
 
+document.getElementById('tab-premium').addEventListener('click', () => {
+  currentGachaTab = 'premium';
+  gachaResultEl.textContent =
+    `プレミアムそうびガチャ: ダイヤを${GACHA_COST_PREMIUM_EQUIP}消費して、星${PREMIUM_GACHA_MIN_RARITY}以上確定の装備を1つひくよ`;
+});
+
+// でんぱガチャは廃止(仕様書5-5)。仲間の入手はバトル内の捕獲のみ。
+// ダイヤの使い道はプレミアムそうびガチャ(レア度保証)に一本化(仕様書5-13)
 document.getElementById('btn-gacha-pull').addEventListener('click', () => {
-  if (currentGachaTab === 'denpa') {
-    // でんぱガチャ
-    if (diamonds < GACHA_COST_DENPA) {
+  const isPremium = currentGachaTab === 'premium';
+
+  if (isPremium) {
+    if (diamonds < GACHA_COST_PREMIUM_EQUIP) {
       gachaResultEl.textContent = 'ダイヤが たりない…';
       return;
     }
-    if (party.length >= MAX_PARTY) {
-      gachaResultEl.textContent = 'パーティがいっぱいだ！';
-      return;
-    }
-    diamonds -= GACHA_COST_DENPA;
-    updateCurrencyUI();
-
-    const type    = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
-    const rolledRarity = rollRarity();
-    const stars   = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
-
-    // レア度に応じてステータス補正
-    const hp = Math.round(type.baseHp * (1 + (rolledRarity - 1) * 0.2));
-    const atk = Math.round((4 + type.baseHp / 10) * (1 + (rolledRarity - 1) * 0.15));
-
-    party.push({
-      name:    type.name,
-      color:   type.color,
-      hp:      Math.round(hp * 0.8),
-      maxHp:   hp,
-      atk:     atk,
-      typeRef: type,
-      element: type.element,
-      level:   5,
-      exp:     0,
-      rarity:  rolledRarity,
-    });
-    
-    addFieldFollower(type);
-    updatePartyPanel();
-    gachaResultEl.innerHTML = `${type.name} が でてきた！<br><span style="color:#e0a83a;">${stars}</span>`;
-    showToast(`${type.name} が なかまになった！`);
   } else {
-    // そうびガチャ
     if (coins < GACHA_COST_EQUIP) {
       gachaResultEl.textContent = 'コインが たりない…';
       return;
     }
-    coins -= GACHA_COST_EQUIP;
-    updateCurrencyUI();
-
-    const rolledRarity = rollRarity();
-    const part = EQUIP_PARTS[Math.floor(Math.random() * EQUIP_PARTS.length)];
-    
-    // 名前生成
-    const prefixes = EQUIP_PREFIXES[rolledRarity];
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const partNameMap = { '頭': 'ヘッドギア', '服': 'ウェア', '足': 'ブーツ' };
-    const equipName = `${prefix}${partNameMap[part]}`;
-
-    // ステータス効果
-    const bonus = EQUIP_STAT_BY_RARITY[rolledRarity];
-    
-    const newEquip = {
-      id: performance.now() + Math.random(),
-      name: equipName,
-      part: part,
-      rarity: rolledRarity,
-      hpBonus: bonus.hp,
-      atkBonus: bonus.atk,
-      equippedTo: null, // 誰にも装備されていない
-    };
-
-    playerEquipInventory.push(newEquip);
-
-    const stars = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
-    gachaResultEl.innerHTML = `<span style="color:var(--green);">${equipName}</span> をてにいれた！<br><span style="color:#e0a83a;">${stars}</span><br>HP+${bonus.hp} / ATK+${bonus.atk}`;
-    showToast(`${equipName} を てにいれた！`);
   }
+
+  if (isPremium) {
+    diamonds -= GACHA_COST_PREMIUM_EQUIP;
+  } else {
+    coins -= GACHA_COST_EQUIP;
+  }
+  updateCurrencyUI();
+
+  const rolledRarity = isPremium ? rollRarityWithFloor(PREMIUM_GACHA_MIN_RARITY) : rollRarity();
+  const part = EQUIP_PARTS[Math.floor(Math.random() * EQUIP_PARTS.length)];
+
+  // 名前生成
+  const prefixes = EQUIP_PREFIXES[rolledRarity];
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const partNameMap = { '頭': 'ヘッドギア', '服': 'ウェア', '足': 'ブーツ' };
+  const equipName = `${prefix}${partNameMap[part]}`;
+
+  // ステータス効果
+  const bonus = EQUIP_STAT_BY_RARITY[rolledRarity];
+
+  const newEquip = {
+    id: performance.now() + Math.random(),
+    name: equipName,
+    part: part,
+    rarity: rolledRarity,
+    hpBonus: bonus.hp,
+    atkBonus: bonus.atk,
+    equippedTo: null, // 誰にも装備されていない
+  };
+
+  playerEquipInventory.push(newEquip);
+
+  const stars = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
+  gachaResultEl.innerHTML = `<span style="color:var(--green);">${equipName}</span> をてにいれた！<br><span style="color:#e0a83a;">${stars}</span><br>HP+${bonus.hp} / ATK+${bonus.atk}`;
+  showToast(`${equipName} を てにいれた！`);
 });
 
 /* ---------------------------------------------------------
@@ -304,7 +280,7 @@ function renderPartyRoster() {
       <div class="roster-row" style="flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 6px;">
         <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <div class="roster-dot" style="background:#${f.color.toString(16).padStart(6, '0')}"></div>
+            <img class="roster-icon" src="${getFighterIconUrl(f)}" alt="${f.name}">
             <div class="roster-name" style="width:auto; font-weight:800;">${f.name} (Lv.${f.level || 1})</div>
             ${f.element ? `<span style="background:${ELEMENT_COLORS[f.element]}; color:#fff; font-size:9px; padding:1px 3px; border:1.5px solid var(--ink); font-weight:800; border-radius:2px;">${ELEMENT_NAMES[f.element]}</span>` : ''}
           </div>

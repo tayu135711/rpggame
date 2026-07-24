@@ -11,15 +11,15 @@ const WALL_HEIGHT    = 3.2;
 const WALL_THICKNESS = 0.5;
 
 /* ---- プレイヤー / フィールド ---- */
-const PLAYER_SPEED   = 6.5;
+const PLAYER_SPEED   = 2.0;
 const ENCOUNTER_DIST = 1.6;
 
 /* ---- 島 ---- */
 const ISLAND_RADIUS       = 3.0;
-const ISLAND_PLAYER_SPEED = 4.5;
+const ISLAND_PLAYER_SPEED = 4.0;
 
 /* ---- パーティ ---- */
-const MAX_PARTY    = 6;
+const MAX_PARTY    = 4;
 const FOLLOW_GAP   = 1.3;
 const FOLLOW_SPEED = PLAYER_SPEED * 1.15;
 
@@ -176,8 +176,8 @@ function calcNextExp(lv) {
    ステージ定義 (仕様書6-3確定: 食べ物テーマ全10ステージ)
 ========================================================= */
 const STAGES = [
-  { no:1,  name:'ケーキのしま',  letter:'ケ', unlocked:true,  desc:'あまい かおりがする、さいしょのステージ' },
-  { no:2,  name:'わがしのしま',  letter:'わ', unlocked:false, desc:'じゅんびちゅう…' },
+  { no:1,  name:'甘いケーキの洞窟',  letter:'ケ', unlocked:true,  desc:'あまい かおりがする、さいしょのステージ' },
+  { no:2,  name:'和菓子の迷宮',  letter:'わ', unlocked:false, desc:'じゅんびちゅう…' },
   { no:3,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
   { no:4,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
   { no:5,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },

@@ -263,12 +263,41 @@ document.getElementById('btn-gacha-pull').addEventListener('click', () => {
   updateCurrencyUI();
 
   const rolledRarity = isPremium ? rollRarityWithFloor(PREMIUM_GACHA_MIN_RARITY) : rollRarity();
+<<<<<<< HEAD
   const newEquip = createEquipItem(rolledRarity);
   playerEquipInventory.push(newEquip);
 
   const stars = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
   gachaResultEl.innerHTML = `<span style="color:var(--green);">${newEquip.name}</span> をてにいれた！<br><span style="color:#e0a83a;">${stars}</span><br>HP+${newEquip.hpBonus} / ATK+${newEquip.atkBonus}`;
   showToast(`${newEquip.name} を てにいれた！`);
+=======
+  const part = EQUIP_PARTS[Math.floor(Math.random() * EQUIP_PARTS.length)];
+
+  // 名前生成
+  const prefixes = EQUIP_PREFIXES[rolledRarity];
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const partNameMap = { '頭': 'ヘッドギア', '服': 'ウェア', '足': 'ブーツ' };
+  const equipName = `${prefix}${partNameMap[part]}`;
+
+  // ステータス効果
+  const bonus = EQUIP_STAT_BY_RARITY[rolledRarity];
+
+  const newEquip = {
+    id: performance.now() + Math.random(),
+    name: equipName,
+    part: part,
+    rarity: rolledRarity,
+    hpBonus: bonus.hp,
+    atkBonus: bonus.atk,
+    equippedTo: null, // 誰にも装備されていない
+  };
+
+  playerEquipInventory.push(newEquip);
+
+  const stars = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
+  gachaResultEl.innerHTML = `<span style="color:var(--green);">${equipName}</span> をてにいれた！<br><span style="color:#e0a83a;">${stars}</span><br>HP+${bonus.hp} / ATK+${bonus.atk}`;
+  showToast(`${equipName} を てにいれた！`);
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
 });
 
 /* ---------------------------------------------------------

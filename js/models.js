@@ -575,6 +575,7 @@ function buildMatchaRollEvolved() {
 
 const ENEMY_TYPES = [
   { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,   baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark',
+<<<<<<< HEAD
     evolvedName: 'ビターチョコおばけ',   evolvedBuild: buildChocoGhostEvolved },
   { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light',
     evolvedName: 'ホールケーキ大王',     evolvedBuild: buildCakeKingEvolved },
@@ -584,4 +585,15 @@ const ENEMY_TYPES = [
     evolvedName: 'ダブルいちごタルト姫', evolvedBuild: buildTartPrincessEvolved },
   { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature',
     evolvedName: '特濃抹茶ロール',       evolvedBuild: buildMatchaRollEvolved },
+=======
+    evolvedName: 'チョコキング',         evolvedBuild: buildChocoGhostEvolved },
+  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light',
+    evolvedName: 'ホールケーキ神皇',     evolvedBuild: buildCakeKingEvolved },
+  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,    baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire',
+    evolvedName: 'ドーナツフレア',       evolvedBuild: buildDonutRingEvolved },
+  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess, baseHp: 38, atk: 6, catchMod: 1.0, element: 'water',
+    evolvedName: 'いちごタルト女王',     evolvedBuild: buildTartPrincessEvolved },
+  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature',
+    evolvedName: '抹茶ロール大樹',       evolvedBuild: buildMatchaRollEvolved },
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
 ];

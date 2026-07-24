@@ -438,6 +438,7 @@ function finishEnemyTurn() {
   if (!battleState) return;
   const stillAlive = getAllFighters().some(f => f.hp > 0);
   if (!stillAlive) {
+<<<<<<< HEAD
     const lostCoins = Math.min(coins, Math.round(coins * WIPE_PENALTY_COIN_RATIO));
     coins -= lostCoins;
     updateCurrencyUI();
@@ -450,6 +451,11 @@ function finishEnemyTurn() {
       openIslandOverlay();
       showToast(lostCoins > 0 ? `しまに はこばれた…コインを ${lostCoins} おとしてしまった` : 'しまに はこばれた…');
     }, 1600);
+=======
+    log('みんな たおれてしまった…しまに はこばれた…');
+    setActionButtons(false);
+    setTimeout(() => { endBattle(); openIslandOverlay(); }, 1600);
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
     return;
   }
 
@@ -536,9 +542,128 @@ async function executeSkillAttack(fighter) {
     });
     if (healedAny) { log('なかま全員が すこし かいふくした！'); updateAllyHpList(); }
   }
+<<<<<<< HEAD
 
   if (e.hp <= 0) {
     handleEnemyDefeated();
+=======
+
+  if (e.hp <= 0) {
+    handleEnemyDefeated();
+    return;
+  }
+
+  if (skill.bindTarget) {
+    e.bound = true;
+    log(`${e.type.name} は からみつかれて うごけなくなった！`);
+  }
+  if (skill.atkDebuffMult) {
+    e.atkDebuffMult = skill.atkDebuffMult;
+    e.atkDebuffTurns = skill.debuffTurns;
+    log(`${e.type.name} の こうげきりょくが さがった！`);
+  }
+  if (skill.cleanseSelf) {
+    getAllFighters().forEach(f => { f.atkDebuffTurns = 0; f.atkDebuffMult = 1; f.bound = false; });
+    log('なかま全員の からだの へんかが もとにもどった！');
+  }
+
+  await wait(180);
+  nextActor();
+}
+
+/**
+ * 1体のキャラでこうげきを実行する。
+ * @param {object} fighter - 行動するキャラ
+ * @param {string|null} element - 属性こうげきなら固有属性キー、通常こうげきなら null(無属性・等倍)
+ */
+async function executeSingleAttack(fighter, element) {
+  const e = battleState.enemy;
+  const enemyElement = e.type.element;
+  const affinity = element ? (ELEMENT_AFFINITY[element]?.[enemyElement] || 1.0) : 1.0;
+
+  const model = findModelFor(fighter);
+  triggerAttackMotion(model, { x: 0, z: -1 });
+  await wait(200);
+  if (!battleState) return;
+
+  let dmg = Math.max(1, Math.round(fighter.atk + Math.random() * 5));
+  if (fighter.atkDebuffTurns > 0) dmg = Math.round(dmg * fighter.atkDebuffMult);
+  dmg = Math.round(dmg * affinity);
+
+  if (element) {
+    log(`${fighter.name} の ${ELEMENT_NAMES[element]}こうげき！`);
+    if (affinity > 1.0) {
+      log('<span style="color:var(--red);">こうかは ばつぐんだ！</span>');
+    } else if (affinity < 1.0) {
+      log('<span style="color:var(--gold);">こうかは いまひとつ のようだ…</span>');
+    }
+  } else {
+    log(`${fighter.name} の こうげき！`);
+  }
+
+  e.hp -= dmg;
+  log(`${e.type.name} に ${dmg} のダメージ！`);
+  triggerHitReaction(enemyBattleModel);
+  updateHpBar();
+
+  if (e.hp <= 0) {
+    handleEnemyDefeated();
+    return;
+  }
+
+  await wait(180);
+  nextActor();
+}
+
+/** 敵を倒したときの共通処理 (経験値・コイン獲得・ステージクリア判定) */
+function handleEnemyDefeated() {
+  const e = battleState.enemy;
+  log(`${e.type.name} をたおした！`);
+  e.alive = false;
+  scene.remove(e.mesh);
+
+  // 経験値とコイン獲得
+  const gainedExp = Math.round(e.type.baseHp * 0.5);
+  const gainedCoins = Math.round(e.type.baseHp * 0.3) + 2;
+  log(`なかま全員が ${gainedExp} のけいけんちをえた！`);
+  log(`コイン+${gainedCoins} を手に入れた！`);
+  coins += gainedCoins;
+  updateCurrencyUI();
+
+  // 全味方に経験値を分配
+  getAllFighters().forEach(f => {
+    if (f.hp > 0) gainExp(f, gainedExp);
+  });
+
+  if (e.isBoss) {
+    log('ステージクリア！');
+
+    // ステージ2のロック解除
+    const stage2 = STAGES.find(st => st.no === 2);
+    if (stage2) {
+      stage2.unlocked = true;
+      const dots = document.querySelectorAll('.stage-dot');
+      if (dots[1]) dots[1].classList.remove('locked');
+    }
+
+    setTimeout(() => {
+      endBattle();
+      showToast('ステージクリア！ しまにもどってきた');
+      openIslandOverlay();
+    }, 1000);
+  } else {
+    setTimeout(endBattle, 900);
+  }
+}
+
+/** 捕獲処理 (プレイヤーの自分のターンにのみ選択可能) */
+function executeCapture() {
+  const e = battleState.enemy;
+
+  if (party.length >= MAX_PARTY) {
+    log('パーティがいっぱいだ！これ以上つかまえられない。');
+    setActionButtons(true);
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
     return;
   }
 

@@ -129,7 +129,10 @@ function gainExp(fighter, amount) {
       fighter.atk   += atkBoost;
       fighter.hp     = fighter.maxHp;
       fighter._iconUrl = null; // 進化後の見た目でアイコンを作り直す
+<<<<<<< HEAD
       refreshFieldFollowerModel(fighter);
+=======
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
 
       showToast(`✨ ${fighter.name} に しんかした！`);
       if (typeof log === 'function' && document.getElementById('battle-overlay').style.display === 'flex') {

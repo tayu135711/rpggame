@@ -11,15 +11,15 @@ const WALL_HEIGHT    = 3.2;
 const WALL_THICKNESS = 0.5;
 
 /* ---- プレイヤー / フィールド ---- */
-const PLAYER_SPEED   = 6.5;
+const PLAYER_SPEED   = 2.0;
 const ENCOUNTER_DIST = 1.6;
 
 /* ---- 島 ---- */
 const ISLAND_RADIUS       = 3.0;
-const ISLAND_PLAYER_SPEED = 4.5;
+const ISLAND_PLAYER_SPEED = 4.0;
 
 /* ---- パーティ ---- */
-const MAX_PARTY    = 6;
+const MAX_PARTY    = 4;
 const FOLLOW_GAP   = 1.3;
 const FOLLOW_SPEED = PLAYER_SPEED * 1.15;
 
@@ -128,6 +128,7 @@ const ELEMENT_ATK_STAB = 1.25;
 ========================================================= */
 
 /* =========================================================
+<<<<<<< HEAD
    とくぎ・しんか システム (2026/07/24 修正)
    全キャラ共通の固定レベルで、3つ目のコマンド「とくぎ」が解放される。
    仲間(捕獲したモンスター)は別途しんかレベルで見た目とステータスが強化される。
@@ -138,6 +139,14 @@ const ELEMENT_ATK_STAB = 1.25;
    数値はすべて暫定値(たたき台) — バランス調整の余地あり
 ========================================================= */
 const SKILL_UNLOCK_LEVEL = 20; // とくぎ解放レベル(全キャラ共通。しんかと同時に解放)
+=======
+   とくぎ・しんか システム (2026/07/23 決定)
+   全キャラ共通の固定レベルで、3つ目のコマンド「とくぎ」が解放される。
+   仲間(捕獲したモンスター)は別途しんかレベルで見た目とステータスが強化される。
+   数値はすべて暫定値(たたき台) — バランス調整の余地あり
+========================================================= */
+const SKILL_UNLOCK_LEVEL = 10; // とくぎ解放レベル(全キャラ共通)
+>>>>>>> ff5e4243085a73b648b156adff64bbfdcf280c13
 const EVOLVE_LEVEL       = 20; // モンスターしんかレベル(仲間のみ。プレイヤーはレアリティ成長で対応)
 
 /**
@@ -239,8 +248,8 @@ function calcCaptureLevel(rarity, isBoss) {
    ステージ定義 (仕様書6-3確定: 食べ物テーマ全10ステージ)
 ========================================================= */
 const STAGES = [
-  { no:1,  name:'ケーキのしま',  letter:'ケ', unlocked:true,  desc:'あまい かおりがする、さいしょのステージ' },
-  { no:2,  name:'わがしのしま',  letter:'わ', unlocked:false, desc:'じゅんびちゅう…' },
+  { no:1,  name:'甘いケーキの洞窟',  letter:'ケ', unlocked:true,  desc:'あまい かおりがする、さいしょのステージ' },
+  { no:2,  name:'和菓子の迷宮',  letter:'わ', unlocked:false, desc:'じゅんびちゅう…' },
   { no:3,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
   { no:4,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },
   { no:5,  name:'？？？',       letter:'?', unlocked:false, desc:'じゅんびちゅう…' },

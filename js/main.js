@@ -48,6 +48,16 @@ sun.shadow.camera.left   = -30; sun.shadow.camera.right  = 30;
 sun.shadow.camera.top    =  30; sun.shadow.camera.bottom = -30;
 scene.add(sun);
 
+/** 迷路(暗い洞窟)の雰囲気から、明るい屋外の雰囲気に戻す */
+function resetFieldAtmosphere() {
+  scene.fog.color.setHex(0x8fd0e8);
+  scene.fog.near = 30;
+  scene.fog.far  = 70;
+  scene.background.setHex(0x8fd0e8);
+  hemi.intensity = 0.9;
+  sun.intensity  = 0.9;
+}
+
 /* ---------------------------------------------------------
    地面
 --------------------------------------------------------- */
@@ -142,6 +152,10 @@ function animate() {
     }
     updateWalkAnimation(player, dt, dx !== 0 || dz !== 0);
     updateFieldFollowers(dt);
+    updateTorches();
+    updateHealSpots();
+    updateHealSpotTrigger();
+    updateExploration();
 
     // 敵のAI (徘徊 + エンカウント)
     for (const e of enemies) {

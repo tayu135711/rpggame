@@ -22,6 +22,59 @@ const TRAINER = {
 const party = [];
 
 /**
+ * ボックス (2026/07/24 追加)
+ * パーティ上限(MAX_PARTY)を超えて捕獲した仲間や、任意に预けた仲間を保管する場所。
+ * ボックス内の仲間はフィールド追従モデルを持たず、経験値も獲得しない。
+ */
+const box = [];
+
+/**
+ * 仲間をパーティからボックスへ移動する(トレーナー本体は対象外)
+ * @param {object} fighter - party配列内の要素
+ * @returns {boolean} 成功したらtrue
+ */
+function moveToBox(fighter) {
+  const idx = party.indexOf(fighter);
+  if (idx === -1 || fighter.isTrainer) return false;
+
+  party.splice(idx, 1);
+  box.push(fighter);
+
+  const model = fieldPartyModels[idx];
+  if (model) {
+    scene.remove(model);
+    model.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      }
+    });
+  }
+  fieldPartyModels.splice(idx, 1);
+
+  updatePartyPanel();
+  return true;
+}
+
+/**
+ * 仲間をボックスからパーティへ呼び出す
+ * @param {object} fighter - box配列内の要素
+ * @returns {boolean} 成功したらtrue(パーティが上限のときはfalse)
+ */
+function moveToParty(fighter) {
+  if (party.length >= MAX_PARTY) return false;
+  const idx = box.indexOf(fighter);
+  if (idx === -1) return false;
+
+  box.splice(idx, 1);
+  party.push(fighter);
+  if (fighter.typeRef) addFieldFollower(fighter.typeRef);
+
+  updatePartyPanel();
+  return true;
+}
+
+/**
  * フィールドでプレイヤーの後ろを追従する仲間の3Dモデルリスト
  * party と同じ順番で対応している
  */
@@ -64,7 +117,84 @@ function gainExp(fighter, amount) {
         showToast(`主人公のレアリティが星 ${fighter.rarity} にあがった！`);
       }
     }
+
+    // モンスターのしんか (仲間のみ・Lv.20到達で見た目とステータスが強化される)
+    if (!fighter.isTrainer && !fighter.evolved && fighter.level >= EVOLVE_LEVEL &&
+        fighter.typeRef && fighter.typeRef.evolvedBuild) {
+      fighter.evolved = true;
+      fighter.name    = fighter.typeRef.evolvedName;
+      const hpBoost  = Math.round(fighter.maxHp * 0.3);
+      const atkBoost = Math.round(fighter.atk * 0.3);
+      fighter.maxHp += hpBoost;
+      fighter.atk   += atkBoost;
+      fighter.hp     = fighter.maxHp;
+      fighter._iconUrl = null; // 進化後の見た目でアイコンを作り直す
+      refreshFieldFollowerModel(fighter);
+
+      showToast(`✨ ${fighter.name} に しんかした！`);
+      if (typeof log === 'function' && document.getElementById('battle-overlay').style.display === 'flex') {
+        log(`<span style="color:var(--gold); font-weight:bold;">✨ ${fighter.name} に しんかした！</span>`);
+      }
+    }
   }
+}
+
+/* ---------------------------------------------------------
+   パーティアイコン (3Dモデルのサムネイル画像) 生成
+   各キャラの見た目がひと目でわかるよう、実際の3Dモデルを
+   正面からレンダリングした画像をアイコンとして使う。
+   一度生成した画像は fighter._iconUrl にキャッシュする。
+--------------------------------------------------------- */
+const _iconCanvas = document.createElement('canvas');
+_iconCanvas.width  = 128;
+_iconCanvas.height = 128;
+const _iconRenderer = new THREE.WebGLRenderer({ canvas: _iconCanvas, antialias: true, alpha: true });
+_iconRenderer.setSize(128, 128, false);
+const _iconScene = new THREE.Scene();
+_iconScene.add(new THREE.HemisphereLight(0xffffff, 0xffd9ec, 1.15));
+const _iconSun = new THREE.DirectionalLight(0xffffff, 0.75);
+_iconSun.position.set(2, 4, 3);
+_iconScene.add(_iconSun);
+const _iconCamera = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
+
+/**
+ * fighter (TRAINER または party の要素) の顔アイコン画像(dataURL)を返す。
+ * @param {object} fighter
+ * @returns {string} dataURL
+ */
+function getFighterIconUrl(fighter) {
+  if (fighter._iconUrl) return fighter._iconUrl;
+
+  const model = fighter.isTrainer
+    ? buildTrainerModel()
+    : (fighter.evolved && fighter.typeRef.evolvedBuild ? fighter.typeRef.evolvedBuild() : fighter.typeRef.build());
+  _iconScene.add(model);
+
+  // モデル全体のバウンディングボックスに合わせてカメラを自動フレーミング
+  const box    = new THREE.Box3().setFromObject(model);
+  const size   = new THREE.Vector3(); box.getSize(size);
+  const center = new THREE.Vector3(); box.getCenter(center);
+  const radius = Math.max(size.x, size.y, size.z, 0.4) * 0.7;
+
+  _iconCamera.position.set(center.x, center.y + size.y * 0.08, center.z + radius * 2.3);
+  _iconCamera.lookAt(center.x, center.y, center.z);
+  _iconCamera.updateProjectionMatrix();
+
+  _iconRenderer.setClearColor(0x000000, 0);
+  _iconRenderer.clear();
+  _iconRenderer.render(_iconScene, _iconCamera);
+  fighter._iconUrl = _iconCanvas.toDataURL('image/png');
+
+  // 使い終わったモデルは破棄してメモリリークを防ぐ
+  _iconScene.remove(model);
+  model.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    }
+  });
+
+  return fighter._iconUrl;
 }
 
 /* ---------------------------------------------------------
@@ -79,7 +209,7 @@ function updatePartyPanel() {
     const stars = p.rarity ? '★'.repeat(p.rarity) : '';
     return `
       <div class="party-member" style="border-bottom:1px dashed var(--ink); padding-bottom:4px; align-items: flex-start; gap: 8px;">
-        <div class="party-dot" style="background:#${p.color.toString(16).padStart(6, '0')}; margin-top: 4px;"></div>
+        <img class="party-icon" src="${getFighterIconUrl(p)}" alt="${p.name}">
         <div style="display:flex; flex-direction:column; gap:2px;">
           <div style="display:flex; align-items:center; flex-wrap: wrap; gap:2px;">
             <span style="font-size:12px; font-weight:800;">${p.name}</span>
@@ -114,6 +244,33 @@ function addFieldFollower(type) {
   );
   scene.add(m);
   fieldPartyModels.push(m);
+}
+
+/**
+ * 仲間がしんかしたときに、フィールド追従モデルを進化後の見た目に差し替える
+ * @param {object} fighter - party 配列内のしんかした仲間
+ */
+function refreshFieldFollowerModel(fighter) {
+  const idx = party.indexOf(fighter);
+  if (idx === -1) return;
+  const oldModel = fieldPartyModels[idx];
+  if (!oldModel || !fighter.typeRef || !fighter.typeRef.evolvedBuild) return;
+
+  const newModel = fighter.typeRef.evolvedBuild();
+  newModel.scale.set(0.65, 0.65, 0.65);
+  newModel.position.copy(oldModel.position);
+  newModel.rotation.y = oldModel.rotation.y;
+
+  scene.remove(oldModel);
+  oldModel.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    }
+  });
+
+  scene.add(newModel);
+  fieldPartyModels[idx] = newModel;
 }
 
 /* ---------------------------------------------------------

@@ -30,6 +30,24 @@
 </div>
 
 <!-- ========================================================
+     ミニマップ (フィールド右上・迷路探索時のみ表示)
+======================================================== -->
+<div id="minimap-wrap">
+  <div id="minimap-floor-label" class="display">ステージ</div>
+  <canvas id="minimap-canvas" width="140" height="140"></canvas>
+  <button id="btn-minimap-zoom">🔍 拡大</button>
+</div>
+
+<!-- ミニマップ拡大表示 -->
+<div id="minimap-zoom-overlay">
+  <div id="minimap-zoom-box" class="tag-panel">
+    <div id="minimap-zoom-title" class="display">ちず</div>
+    <canvas id="minimap-zoom-canvas" width="340" height="340"></canvas>
+    <button class="btn" id="btn-minimap-zoom-close">とじる</button>
+  </div>
+</div>
+
+<!-- ========================================================
      パーティパネル (フィールド右上)
 ======================================================== -->
 <div id="party-panel" class="tag-panel">
@@ -60,17 +78,32 @@
       </div>
     </div>
 
-    <!-- コマンドキュー -->
+    <!-- 行動キュー (このラウンドでこれから行動するメンバー) -->
     <div id="battle-queue-wrap">
-      <span class="queue-label display">ターン属性</span>
+      <span class="queue-label display">こうどうじゅん</span>
       <div id="battle-queue-list" class="queue-list"></div>
     </div>
 
-    <!-- コマンドボタン -->
+    <!-- 現在行動中のキャラ -->
+    <div id="active-actor-label"></div>
+
+    <!-- コマンドボタン (行動中のキャラによって出し分ける) -->
     <div id="battle-actions">
-      <button class="btn cmd" id="btn-active-cmd">
-        <span class="cmd-icon" id="cmd-active-icon"></span>
-        <span id="cmd-active-text">属性こうげき</span>
+      <button class="btn cmd" id="btn-normal-atk">
+        <span class="cmd-icon icon-attack"></span>
+        <span>つうじょうこうげき</span>
+      </button>
+      <button class="btn cmd" id="btn-element-atk">
+        <span class="cmd-icon icon-attack" id="element-atk-icon"></span>
+        <span id="element-atk-text">属性こうげき</span>
+      </button>
+      <button class="btn cmd" id="btn-skill">
+        <span class="cmd-icon icon-attack" id="skill-icon"></span>
+        <span id="skill-text">とくぎ</span>
+      </button>
+      <button class="btn cmd capture-btn" id="btn-capture">
+        <span class="cmd-icon icon-capture"></span>
+        <span>つかまえる</span>
       </button>
       <button class="btn cmd" id="btn-run" style="background:#4a7ca8;">
         <span class="cmd-icon icon-run"></span>にげる
@@ -132,12 +165,12 @@
 ======================================================== -->
 <div id="gacha-modal">
   <div id="gacha-box" class="tag-panel">
-    <div class="modal-title display">ガチャ</div>
+    <div class="modal-title display">そうびガチャ</div>
     <div id="gacha-tabs">
-      <button class="btn" id="tab-denpa">でんぱガチャ (ダイヤ5)</button>
       <button class="btn" id="tab-equip">そうびガチャ (コイン30)</button>
+      <button class="btn" id="tab-premium">プレミアム (ダイヤ8)</button>
     </div>
-    <div id="gacha-result">でんぱガチャ: でんぱ人間が1体でてくるよ</div>
+    <div id="gacha-result">そうびガチャ: コインを30消費して、装備を1つひくよ</div>
     <button class="btn capture" id="btn-gacha-pull">ひく</button>
     <button class="btn" id="btn-gacha-close">とじる</button>
   </div>
@@ -148,7 +181,10 @@
 ======================================================== -->
 <div id="party-modal">
   <div id="party-box" class="tag-panel">
-    <div class="modal-title display">パーティへんせい</div>
+    <div class="modal-title display" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>パーティへんせい</span>
+      <button class="btn" id="btn-open-box" style="font-size:11px; padding:4px 8px; box-shadow:1.5px 1.5px 0 var(--ink);" onclick="renderBoxRoster()">ボックス</button>
+    </div>
     <div id="party-roster"></div>
     <button class="btn" id="btn-party-close">とじる</button>
   </div>

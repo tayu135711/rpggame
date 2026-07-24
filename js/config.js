@@ -19,7 +19,8 @@ const ISLAND_RADIUS       = 3.0;
 const ISLAND_PLAYER_SPEED = 4.5;
 
 /* ---- パーティ ---- */
-const MAX_PARTY    = 6;
+// 主人公を除く仲間のパーティ上限。超過分はボックスへ送る。
+const MAX_PARTY    = 3;
 const FOLLOW_GAP   = 1.3;
 const FOLLOW_SPEED = PLAYER_SPEED * 1.15;
 

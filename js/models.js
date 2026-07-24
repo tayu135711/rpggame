@@ -19,31 +19,44 @@ function makeRock(x, z) {
   return rock;
 }
 
-/** 宝箱メッシュを生成して返す */
+/** 宝箱メッシュを生成して返す (大型化: 約二倍サイズ) */
 function buildChest() {
   const g       = new THREE.Group();
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a5a2a, flatShading: true });
   const trimMat = new THREE.MeshStandardMaterial({ color: 0xd9a13c, flatShading: true });
 
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.46), woodMat);
-  base.position.y = 0.2; base.castShadow = true;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.92), woodMat);
+  base.position.y = 0.4; base.castShadow = true;
   g.add(base);
 
-  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.22, 0.48), woodMat);
-  lid.position.y = 0.51; lid.castShadow = true;
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.44, 0.96), woodMat);
+  lid.position.y = 1.02; lid.castShadow = true;
   g.add(lid);
 
-  const band1 = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.5), trimMat);
-  band1.position.y = 0.2;
+  const band1 = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.12, 1.0), trimMat);
+  band1.position.y = 0.4;
   g.add(band1);
 
-  const band2 = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.5), trimMat);
-  band2.position.y = 0.51;
+  const band2 = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.12, 1.0), trimMat);
+  band2.position.y = 1.02;
   g.add(band2);
 
-  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.06), trimMat);
-  lock.position.set(0, 0.35, 0.25);
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.12), trimMat);
+  lock.position.set(0, 0.7, 0.5);
   g.add(lock);
+
+  // 金色の角鉄
+  [[-0.68, -0.45], [0.68, -0.45], [-0.68, 0.45], [0.68, 0.45]].forEach(([bx, bz]) => {
+    const corner = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.88, 0.14), trimMat);
+    corner.position.set(bx, 0.44, bz);
+    g.add(corner);
+  });
+
+  // 宝石飾り
+  const gemMat = new THREE.MeshBasicMaterial({ color: 0x4adfff });
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), gemMat);
+  gem.position.set(0, 0.7, 0.52);
+  g.add(gem);
 
   return g;
 }
@@ -573,15 +586,158 @@ function buildMatchaRollEvolved() {
   return g;
 }
 
+/** もりのぬし (自然属性) — 画像のようなずっしり丸い体に赤いキノコが生えているモンスター */
+function buildMushroomBoss() {
+  const g = new THREE.Group();
+
+  // ボディ — ずっしりした丸い角张り
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd4c8a8, flatShading: true, roughness: 0.8 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.75, 14, 10), bodyMat);
+  body.scale.set(1.15, 1.05, 1.1);
+  body.position.y = 0.72;
+  body.castShadow = true;
+  g.add(body);
+
+  // 腐葉層 — 下半を少し木色に
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0xa89878, flatShading: true, roughness: 1 });
+  const baseBody = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.55, 0.5, 12), baseMat);
+  baseBody.position.y = 0.25;
+  baseBody.castShadow = true;
+  g.add(baseBody);
+
+  // なまこ髪 (ボディ横幅に旀) — 大型キノコを何本か繋りまとめたような形
+  const capMat    = new THREE.MeshStandardMaterial({ color: 0xc23030, flatShading: true, roughness: 0.7 });
+  const capSpotMat = new THREE.MeshBasicMaterial({ color: 0xfff5e0 });
+
+  // メインキノコ (真正面上)
+  const mainCap = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8, 0, Math.PI*2, 0, Math.PI*0.6), capMat);
+  mainCap.position.set(0, 1.42, 0);
+  mainCap.castShadow = true;
+  g.add(mainCap);
+
+  const mainStem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.28, 8), bodyMat);
+  mainStem.position.set(0, 1.2, 0);
+  g.add(mainStem);
+
+  // 山の点
+  for (let si = 0; si < 4; si++) {
+    const sAngle = (si / 4) * Math.PI * 2 + 0.3;
+    const r      = 0.28 + (si % 2) * 0.08;
+    const sx = Math.cos(sAngle) * r;
+    const sz = Math.sin(sAngle) * r;
+    const spot = new THREE.Mesh(new THREE.CircleGeometry(0.06 + Math.random()*0.04, 8), capSpotMat);
+    spot.position.set(sx, 1.68 + Math.random()*0.08, sz);
+    spot.lookAt(sx * 3, 3.5, sz * 3);
+    g.add(spot);
+  }
+
+  // サイドキノコ (左)
+  const sideCapL = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 7, 0, Math.PI*2, 0, Math.PI*0.6), capMat);
+  sideCapL.position.set(-0.5, 1.18, 0.1);
+  sideCapL.rotation.z = -0.3;
+  sideCapL.castShadow = true;
+  g.add(sideCapL);
+  const sideStemL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.18, 6), bodyMat);
+  sideStemL.position.set(-0.46, 1.06, 0.1);
+  sideStemL.rotation.z = -0.3;
+  g.add(sideStemL);
+
+  // サイドキノコ (右)
+  const sideCapR = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 7, 0, Math.PI*2, 0, Math.PI*0.6), capMat);
+  sideCapR.position.set(0.52, 1.22, 0.05);
+  sideCapR.rotation.z = 0.35;
+  sideCapR.castShadow = true;
+  g.add(sideCapR);
+  const sideStemR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.15, 6), bodyMat);
+  sideStemR.position.set(0.48, 1.1, 0.05);
+  sideStemR.rotation.z = 0.35;
+  g.add(sideStemR);
+
+  // 小さなキノコ (左耂部)
+  const tinyCap1 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6, 0, Math.PI*2, 0, Math.PI*0.55), capMat);
+  tinyCap1.position.set(-0.62, 0.75, 0.35);
+  g.add(tinyCap1);
+  const tinyCap2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6, 0, Math.PI*2, 0, Math.PI*0.55), capMat);
+  tinyCap2.position.set(0.60, 0.72, 0.32);
+  g.add(tinyCap2);
+
+  // 目 (強面の赤い目)
+  const eyeMat    = new THREE.MeshStandardMaterial({ color: 0x8a1010, flatShading: true });
+  const eyeGlowMat = new THREE.MeshBasicMaterial({ color: 0xff4040 });
+  [-0.22, 0.22].forEach((ex, idx) => {
+    // 外側の目
+    const eyeOuter = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeMat);
+    eyeOuter.position.set(ex, 0.84, 0.7);
+    eyeOuter.scale.set(1, 0.6, 0.7);
+    g.add(eyeOuter);
+    // 光る瞳子
+    const eyeGlow = new THREE.Mesh(new THREE.SphereGeometry(0.055, 7, 7), eyeGlowMat);
+    eyeGlow.position.set(ex, 0.84, 0.74);
+    g.add(eyeGlow);
+    // 山屡たまゆ
+    const browMat = new THREE.MeshStandardMaterial({ color: 0x4a2020, flatShading: true });
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, 0.06), browMat);
+    brow.position.set(ex, 0.94, 0.7);
+    brow.rotation.z = idx === 0 ? 0.3 : -0.3;
+    g.add(brow);
+  });
+
+  // 小さなバビ (脂肪たっぷり感)
+  const blobMat = new THREE.MeshStandardMaterial({ color: 0xccc0a0, flatShading: true, roughness: 0.9 });
+  [[-0.58, 0.5, 0.5, 0.15], [0.55, 0.48, 0.55, 0.13], [-0.2, 0.28, 0.68, 0.11], [0.22, 0.3, 0.66, 0.10]].forEach(([bx, by, bz, br]) => {
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(br, 8, 6), blobMat);
+    blob.position.set(bx, by, bz);
+    g.add(blob);
+  });
+
+  // 自然属性の「かび」演出用オーラリング
+  addAuraRing(g, 0x246e2e, 0.04, 0.9);
+
+  return g;
+}
+
+/** もりのぬし 進化 (大樹キノコ王) */
+function buildMushroomBossEvolved() {
+  const g = buildMushroomBoss();
+  g.scale.set(1.2, 1.2, 1.2);
+
+  // 追加の巨大キノコ
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xa01818, flatShading: true });
+  const megaCap = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, Math.PI*2, 0, Math.PI*0.55), capMat);
+  megaCap.position.set(0.15, 1.85, 0);
+  megaCap.rotation.z = 0.2;
+  g.add(megaCap);
+
+  // 木の根のようなもの
+  const rootMat = new THREE.MeshStandardMaterial({ color: 0x6a4a28, flatShading: true });
+  [-0.4, 0.4].forEach(rx => {
+    const root = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.1), rootMat);
+    root.position.set(rx, -0.05, 0.3);
+    root.rotation.z = rx > 0 ? 0.4 : -0.4;
+    g.add(root);
+  });
+
+  addAuraRing(g, 0x1a5e22, 0.04, 1.1);
+  return g;
+}
+
 const ENEMY_TYPES = [
-  { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,   baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark',
-    evolvedName: 'ビターチョコおばけ',   evolvedBuild: buildChocoGhostEvolved },
-  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,     baseHp: 60, atk: 8, catchMod: 0.6, element: 'light',
-    evolvedName: 'ホールケーキ大王',     evolvedBuild: buildCakeKingEvolved },
-  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,    baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire',
+  { name: 'チョコおばけ',   color: 0x4a2c17, build: buildChocoGhost,    baseHp: 28, atk: 4, catchMod: 1.3, element: 'dark',
+    fleeResistance: 0.12,
+    evolvedName: 'ビターチョコおばけ',    evolvedBuild: buildChocoGhostEvolved },
+  { name: 'ホールケーキ王', color: 0xe0b83a, build: buildCakeKing,      baseHp: 60, atk: 8, catchMod: 0.6, element: 'light',
+    fleeResistance: 0.82,
+    evolvedName: 'ホールケーキ大王',      evolvedBuild: buildCakeKingEvolved },
+  { name: 'ドーナツリング', color: 0xe8a0c0, build: buildDonutRing,     baseHp: 32, atk: 5, catchMod: 1.2, element: 'fire',
+    fleeResistance: 0.24,
     evolvedName: 'アツアツドーナツリング', evolvedBuild: buildDonutRingEvolved },
-  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess, baseHp: 38, atk: 6, catchMod: 1.0, element: 'water',
-    evolvedName: 'ダブルいちごタルト姫', evolvedBuild: buildTartPrincessEvolved },
-  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,   baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature',
-    evolvedName: '特濃抹茶ロール',       evolvedBuild: buildMatchaRollEvolved },
+  { name: 'いちごタルト姫', color: 0xd6304a, build: buildTartPrincess,  baseHp: 38, atk: 6, catchMod: 1.0, element: 'water',
+    fleeResistance: 0.38,
+    evolvedName: 'ダブルいちごタルト姫',  evolvedBuild: buildTartPrincessEvolved },
+  { name: '抹茶ロール',     color: 0x4a7c3f, build: buildMatchaRoll,    baseHp: 35, atk: 5, catchMod: 1.1, element: 'nature',
+    fleeResistance: 0.5,
+    evolvedName: '特濃抹茶ロール',        evolvedBuild: buildMatchaRollEvolved },
+  { name: 'もりのぬし',     color: 0x8a3a3a, build: buildMushroomBoss,  baseHp: 55, atk: 7, catchMod: 0.7, element: 'nature',
+    fleeResistance: 0.9, bodySlam: true,
+    evolvedName: '大樹のぬし',            evolvedBuild: buildMushroomBossEvolved },
 ];

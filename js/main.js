@@ -102,7 +102,8 @@ window.addEventListener('resize', () => {
 function updateCamera() {
   const camOffset = new THREE.Vector3(0, 9, 7);
   const targetPos = player.position.clone().add(camOffset);
-  camera.position.lerp(targetPos, 0.12);
+  // フィールド移動中の追従遅れによる画面の揺れをなくし、常に一定の視点で追従する。
+  camera.position.copy(targetPos);
   camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 0.6, 0)));
 }
 
@@ -125,10 +126,11 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  if (islandOverlayOpen) {
+  const islandVisible = document.getElementById('island-overlay')?.style.display !== 'none';
+  if (islandVisible) {
     // 島マップ
-    updateIslandPlayer(dt);
-    islandRenderer.render(islandScene, islandCamera);
+    if (typeof window.updateIslandPlayer === 'function') window.updateIslandPlayer(dt);
+    window.islandRenderer?.render(window.islandScene, window.islandCamera);
 
   } else if (!battleState) {
     // フィールド探索
@@ -157,46 +159,123 @@ function animate() {
     updateHealSpotTrigger();
     updateExploration();
 
-    // 敵のAI (徘徊 + エンカウント)
+    if (currentMapMode === 'stage' && bossGate && !bossGate.triggered) {
+      const gateDist = Math.hypot(player.position.x - bossGate.x, player.position.z - bossGate.z);
+      if (gateDist < 2.0) {
+        bossGate.triggered = true;
+        showToast('この先に入ると前のエリアに戻りません。');
+        setTimeout(() => {
+          if (!battleState && currentMapMode === 'stage') setupBossArena();
+        }, 1200);
+      }
+    }
+
+    // 敵のAI (彺徨 + 追跡 + エンカウント)
+    const WANDER_SPEED = 0.72;  // ターン制の間合いを壊さない緩やかな徘徊
+    const CHASE_SPEED  = 1.65;  // 視界に入った時だけ、ゆっくり追跡
+
     for (const e of enemies) {
       if (!e.alive) continue;
 
-      e.wanderTimer -= dt;
-      if (e.wanderTimer <= 0) {
-        e.wanderTimer = 2 + Math.random() * 3;
-        e.wanderTarget.set(
-          e.mesh.position.x + (Math.random() - 0.5) * 6,
-          0,
-          e.mesh.position.z + (Math.random() - 0.5) * 6
-        );
-      }
-
-      const dir = new THREE.Vector3(
-        e.wanderTarget.x - e.mesh.position.x,
-        0,
-        e.wanderTarget.z - e.mesh.position.z
-      );
-      if (dir.length() > 0.1) {
-        dir.normalize();
-        const enx = e.mesh.position.x + dir.x * 1.2 * dt;
-        const enz = e.mesh.position.z + dir.z * 1.2 * dt;
-        if (!collidesWithWalls(enx, enz, 0.65)) {
-          e.mesh.position.x = enx;
-          e.mesh.position.z = enz;
-        } else {
-          e.wanderTimer = 0; // 壁衝突 → 次フレームで新目標を選択
-        }
-        e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-      }
-      // ふわふわ浮遊
-      e.mesh.position.y = Math.sin(performance.now() / 400 + e.mesh.id) * 0.08;
-
-      // エンカウント判定
-      const dist = Math.hypot(
+      const distToPlayer = Math.hypot(
         player.position.x - e.mesh.position.x,
         player.position.z - e.mesh.position.z
       );
-      if (dist < ENCOUNTER_DIST) startBattle(e);
+      // 敵の正面の視界 cone + 壁チェック。壁越し・背後からは追跡しない。
+      const toPlayer = new THREE.Vector3(
+        player.position.x - e.mesh.position.x, 0,
+        player.position.z - e.mesh.position.z
+      );
+      const dirLen = toPlayer.length();
+      const facing = new THREE.Vector3(Math.sin(e.mesh.rotation.y), 0, Math.cos(e.mesh.rotation.y));
+      const inVisionCone = dirLen > 0.01 && facing.dot(toPlayer.clone().normalize()) >= (e.visionAngle || Math.cos(Math.PI * 0.34));
+      const canSeePlayer = !e.isGuardBoss && dirLen <= (e.visionRange || 8.5) && inVisionCone && isLineOfSightClear(
+        e.mesh.position.x, e.mesh.position.z, player.position.x, player.position.z
+      );
+      // 一度見つけた敵は、視界から少し外れても近距離だけ追跡を維持する。
+      const isChasing = canSeePlayer || (e.wasChasing && dirLen < 3.6 && isLineOfSightClear(
+        e.mesh.position.x, e.mesh.position.z, player.position.x, player.position.z
+      ));
+
+      // 追跡モードの記憶が切り替わったときに「！」マーカーを切り替える
+      if (isChasing !== e.wasChasing) {
+        e.wasChasing = isChasing;
+        // 追跡開始: マーカーを赤い山に
+        if (e.mesh.userData.chaseMarker) {
+          e.mesh.userData.chaseMarker.visible = isChasing;
+          e.mesh.userData.chaseMarker.material.color.setHex(
+            isChasing ? 0xff2020 : 0xffe45e
+          );
+        }
+      }
+
+      if (isChasing) {
+        // === 追跡モード: プレイヤーに向かって突進 ===
+        e.wanderTimer = 0; // 彺徨タイマーリセット
+        const dir = new THREE.Vector3(
+          player.position.x - e.mesh.position.x,
+          0,
+          player.position.z - e.mesh.position.z
+        );
+        if (dir.length() > 0.1) {
+          dir.normalize();
+          const enx = e.mesh.position.x + dir.x * CHASE_SPEED * dt;
+          const enz = e.mesh.position.z + dir.z * CHASE_SPEED * dt;
+          if (!collidesWithWalls(enx, enz, 0.65) && isLineOfSightClear(
+            enx, enz, player.position.x, player.position.z
+          )) {
+            e.mesh.position.x = enx;
+            e.mesh.position.z = enz;
+          } else {
+            // 壁に当たったとき: 少し横に逃げて持って再追跡
+            const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+            const side = Math.random() < 0.5 ? 1 : -1;
+            const ex2  = e.mesh.position.x + perp.x * side * CHASE_SPEED * dt;
+            const ez2  = e.mesh.position.z + perp.z * side * CHASE_SPEED * dt;
+          if (!collidesWithWalls(ex2, ez2, 0.65) && isLineOfSightClear(
+            ex2, ez2, player.position.x, player.position.z
+          )) {
+              e.mesh.position.x = ex2;
+              e.mesh.position.z = ez2;
+            }
+          }
+          e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        }
+      } else if (!e.isGuardBoss) {
+        // === 彺徨モード: 従来通りにランダム彺徨 ===
+        e.wanderTimer -= dt;
+        if (e.wanderTimer <= 0) {
+          e.wanderTimer = 2 + Math.random() * 3;
+          e.wanderTarget.set(
+            e.mesh.position.x + (Math.random() - 0.5) * 6,
+            0,
+            e.mesh.position.z + (Math.random() - 0.5) * 6
+          );
+        }
+        const dir = new THREE.Vector3(
+          e.wanderTarget.x - e.mesh.position.x,
+          0,
+          e.wanderTarget.z - e.mesh.position.z
+        );
+        if (dir.length() > 0.1) {
+          dir.normalize();
+          const enx = e.mesh.position.x + dir.x * WANDER_SPEED * dt;
+          const enz = e.mesh.position.z + dir.z * WANDER_SPEED * dt;
+          if (!collidesWithWalls(enx, enz, 0.65)) {
+            e.mesh.position.x = enx;
+            e.mesh.position.z = enz;
+          } else {
+            e.wanderTimer = 0; // 壁衝突 → 次フレームで新目標を選択
+          }
+          e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        }
+      }
+
+      // 敷波浮遊 (Y軍バウンス)
+      e.mesh.position.y = Math.sin(performance.now() / 400 + e.mesh.id) * 0.08;
+
+      // エンカウント判定
+      if (distToPlayer < ENCOUNTER_DIST) triggerEncounter(e);
     }
 
     // 宝箱の自動開封
@@ -217,6 +296,29 @@ function animate() {
 
   updateCamera();
   composer.render();
+}
+
+/* ---------------------------------------------------------
+   エンカウント演出: 暗転フラッシュ + 「！」
+--------------------------------------------------------- */
+const encounterFlashEl = document.getElementById('encounter-flash');
+let encounterLocked = false; // エンカウント連発防止フラグ
+
+function triggerEncounter(e) {
+  if (encounterLocked) return;
+  encounterLocked = true;
+  // 暗転フラッシュ
+  if (encounterFlashEl) {
+    encounterFlashEl.style.opacity = '0.85';
+    setTimeout(() => {
+      encounterFlashEl.style.opacity = '0';
+    }, 160);
+  }
+  // 少し遅らせてバトル開始
+  setTimeout(() => {
+    startBattle(e);
+    encounterLocked = false;
+  }, 120);
 }
 
 /* ---------------------------------------------------------

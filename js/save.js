@@ -160,8 +160,13 @@ function loadGame(showMsg = true) {
   (data.party || []).forEach(d => {
     const f = deserializeMonster(d, findEquip);
     if (f) {
-      party.push(f);
-      if (typeof addFieldFollower === 'function') addFieldFollower(f.typeRef);
+      if (party.length < MAX_PARTY) {
+        party.push(f);
+        if (typeof addFieldFollower === 'function') addFieldFollower(f.typeRef);
+      } else {
+        // 上限変更前のセーブデータも、余剰分はボックスへ保管する。
+        box.push(f);
+      }
     }
   });
   (data.box || []).forEach(d => {

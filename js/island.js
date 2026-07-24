@@ -7,8 +7,8 @@
 /* ---------------------------------------------------------
    通貨
 --------------------------------------------------------- */
-let diamonds = 20;
-let coins    = 50;
+var diamonds = 20;
+var coins    = 50;
 
 function updateCurrencyUI() {
   document.getElementById('diamond-count').textContent = diamonds;
@@ -106,6 +106,11 @@ function updateIslandPlayer(dt) {
   islandCamera.position.lerp(targetPos, 0.1);
   islandCamera.lookAt(islandPlayer.position.clone().add(new THREE.Vector3(0, 0.35, 0)));
 }
+// 他のクラシックスクリプトからも島シーンを確実に参照できるよう公開する。
+window.updateIslandPlayer = updateIslandPlayer;
+window.islandRenderer = islandRenderer;
+window.islandScene = islandScene;
+window.islandCamera = islandCamera;
 
 /* ---------------------------------------------------------
    島オーバーレイの開閉
@@ -255,17 +260,12 @@ document.getElementById('btn-gacha-pull').addEventListener('click', () => {
     }
   }
 
-  if (isPremium) {
-    diamonds -= GACHA_COST_PREMIUM_EQUIP;
-  } else {
-    coins -= GACHA_COST_EQUIP;
-  }
+  if (isPremium) diamonds -= GACHA_COST_PREMIUM_EQUIP;
+  else coins -= GACHA_COST_EQUIP;
   updateCurrencyUI();
-
   const rolledRarity = isPremium ? rollRarityWithFloor(PREMIUM_GACHA_MIN_RARITY) : rollRarity();
   const newEquip = createEquipItem(rolledRarity);
   playerEquipInventory.push(newEquip);
-
   const stars = '★'.repeat(rolledRarity) + '☆'.repeat(5 - rolledRarity);
   gachaResultEl.innerHTML = `<span style="color:var(--green);">${newEquip.name}</span> をてにいれた！<br><span style="color:#e0a83a;">${stars}</span><br>HP+${newEquip.hpBonus} / ATK+${newEquip.atkBonus}`;
   showToast(`${newEquip.name} を てにいれた！`);
@@ -285,22 +285,25 @@ function renderPartyRoster() {
     const stars = p => p.rarity ? '★'.repeat(p.rarity) + '☆'.repeat(5 - p.rarity) : '';
     
     return `
-      <div class="roster-row" style="flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 6px;">
-        <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
-          <div style="display:flex; align-items:center; gap:8px;">
+      <div class="roster-row" style="flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 6px;">
+        <div style="display:flex; align-items:center; width:100%; justify-content:space-between; gap:4px;">
+          <div style="display:flex; align-items:center; gap:6px; min-width: 0; flex: 1;">
             <img class="roster-icon" src="${getFighterIconUrl(f)}" alt="${f.name}">
-            <div class="roster-name" style="width:auto; font-weight:800;">${f.name} (Lv.${f.level || 1})</div>
-            ${f.element ? `<span style="background:${ELEMENT_COLORS[f.element]}; color:#fff; font-size:9px; padding:1px 3px; border:1.5px solid var(--ink); font-weight:800; border-radius:2px;">${ELEMENT_NAMES[f.element]}</span>` : ''}
+            <div style="min-width: 0; flex: 1; text-align: left;">
+              <div class="roster-name" style="width:100%; font-weight:800; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${f.name}</div>
+              <div style="font-size:10px; color:var(--red); font-weight:800;">Lv.${f.level || 1}</div>
+            </div>
+            ${f.element ? `<span style="background:${ELEMENT_COLORS[f.element]}; color:#fff; font-size:8px; padding:1px 2px; border:1.5px solid var(--ink); font-weight:800; border-radius:2px; flex-shrink:0;">${ELEMENT_NAMES[f.element]}</span>` : ''}
           </div>
-          <div style="display:flex; gap:6px;">
-            ${!f.isTrainer ? `<button class="btn" style="font-size:11px; padding:4px 8px; background:var(--red); box-shadow:1.5px 1.5px 0 var(--ink);" onclick="actionSendToBox(${index})">ボックスへ</button>` : ''}
-            <button class="btn" style="font-size:11px; padding:4px 8px; background:var(--plum); box-shadow:1.5px 1.5px 0 var(--ink);" onclick="openEquipManager(${index})">そうび変更</button>
+          <div style="display:flex; gap:4px; flex-shrink:0;">
+            ${!f.isTrainer ? `<button class="btn" style="font-size:9px; padding:4px 6px; background:var(--red); box-shadow:1px 1px 0 var(--ink); white-space:nowrap; width:auto;" onclick="actionSendToBox(${index})">ボックスへ</button>` : ''}
+            <button class="btn" style="font-size:9px; padding:4px 6px; background:var(--plum); box-shadow:1px 1px 0 var(--ink); white-space:nowrap; width:auto;" onclick="openEquipManager(${index})">そうび変更</button>
           </div>
         </div>
-        <div class="roster-stats">
+        <div class="roster-stats" style="width: 100%; text-align: left;">
           <div style="color:#e0a83a; font-weight:800; font-size:10px; margin-bottom:2px;">${stars(f)}</div>
           HP: ${Math.max(0, Math.ceil(f.hp))}/${f.maxHp} ・ ATK: ${f.atk}<br>
-          <span style="font-size:10px; opacity:0.8; font-weight:700;">頭: ${headText} | 服: ${bodyText} | 足: ${legText}</span>
+          <span style="font-size:9px; opacity:0.8; font-weight:700;">頭: ${headText} | 服: ${bodyText} | 足: ${legText}</span>
         </div>
       </div>
     `;
@@ -310,32 +313,32 @@ function renderPartyRoster() {
 window.renderPartyRoster = renderPartyRoster;
 
 /* ---------------------------------------------------------
-   ボックス UI (2026/07/24 追加)
-   パーティ上限(MAX_PARTY)を超えて捕獲した仲間、または任意に预けた仲間の一覧
+   ボックス UI (4列ハウス風グリッド仕様)
 --------------------------------------------------------- */
 function renderBoxRoster() {
   const el = document.getElementById('party-roster');
-  const rows = box.length > 0 ? box.map((f, index) => {
-    const stars = f.rarity ? '★'.repeat(f.rarity) + '☆'.repeat(5 - f.rarity) : '';
+  
+  const rooms = box.length > 0 ? box.map((f, index) => {
+    const stars = f.rarity ? '★'.repeat(f.rarity) : '';
     return `
-      <div class="roster-row" style="align-items:center; gap:8px; padding:10px 6px;">
+      <div class="box-room" onclick="actionCallFromBox(${index})">
         <img class="roster-icon" src="${getFighterIconUrl(f)}" alt="${f.name}">
-        <div style="flex:1; text-align:left;">
-          <div style="font-weight:800; font-size:12px;">${f.name} (Lv.${f.level})</div>
-          <div style="color:#e0a83a; font-weight:800; font-size:10px;">${stars}</div>
-        </div>
-        <button class="btn" style="font-size:11px; padding:4px 8px; background:var(--green); box-shadow:1.5px 1.5px 0 var(--ink);" onclick="actionCallFromBox(${index})">パーティへ</button>
+        <div class="box-room-name">${f.name}</div>
+        <div class="box-room-lvl">Lv.${f.level}</div>
+        <div style="font-size:7px; color:#e0a83a; line-height:1; transform:scale(0.9);">${stars}</div>
       </div>
     `;
-  }).join('') : '<div style="padding:15px 0; text-align:center; font-size:12px; opacity:0.6; font-weight:700;">ボックスは からっぽです</div>';
+  }).join('') : '';
 
   el.innerHTML = `
     <div style="text-align:left;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:2px solid var(--ink); padding-bottom:6px;">
-        <span class="display" style="font-size:14px; color:var(--plum);">ボックス (${box.length})</span>
-        <button class="btn" style="font-size:11px; padding:4px 8px; box-shadow:1px 1px 0 var(--ink);" onclick="renderPartyRoster()">もどる</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:2px solid var(--ink); padding-bottom:6px;">
+        <span class="display" style="font-size:13px; color:var(--plum);">🏠 なかまのおうち (${box.length}体)</span>
+        <button class="btn" style="font-size:10px; padding:4px 8px; box-shadow:1.5px 1.5px 0 var(--ink);" onclick="renderPartyRoster()">もどる</button>
       </div>
-      <div style="max-height:260px; overflow-y:auto;">${rows}</div>
+      <div class="box-house-grid">
+        ${rooms || '<div style="grid-column: span 4; text-align:center; padding:35px 0; font-size:11px; opacity:0.6; font-weight:700; color:#5a3c20;">だれも いないよ</div>'}
+      </div>
     </div>
   `;
 }

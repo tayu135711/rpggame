@@ -51,7 +51,7 @@
      パーティパネル (フィールド右上)
 ======================================================== -->
 <div id="party-panel" class="tag-panel">
-  <h3 class="display">パーティ (<span id="party-count">0</span>/6)</h3>
+  <h3 class="display">パーティ (<span id="party-count">0</span>/3)</h3>
   <div id="party-list" style="color:#999;">まだ誰もいない…</div>
 </div>
 
@@ -66,6 +66,8 @@
     <div id="battle-stage-wrap">
       <canvas id="battle-canvas"></canvas>
       <div id="battle-flash"></div>
+      <div id="battle-shockwave"></div>
+      <div id="damage-popup-container"></div>
     </div>
 
     <!-- 敵HPバー -->
@@ -200,6 +202,7 @@
      演出要素
 ======================================================== -->
 <div id="catch-flash"></div>
+<div id="encounter-flash"></div>
 <div id="toast"></div>
 
 <!-- ========================================================

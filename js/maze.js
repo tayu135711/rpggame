@@ -85,6 +85,8 @@ let   stageDecorations = [];
 let   torches          = [];
 let   chests          = [];
 let   healSpots       = []; // { mesh, active } — active=trueの間は発動済み(再度離れるとfalseに戻る)
+let   bossGate        = null;
+let   currentMapMode  = 'stage'; // stage / bossArena
 const enemies         = []; // { mesh, type, hp, maxHp, alive, isBoss, wanderTarget, wanderTimer }
 
 /* ---------------------------------------------------------
@@ -417,24 +419,35 @@ function collidesWithWalls(x, z, radius) {
 /* ---------------------------------------------------------
    宝箱
 --------------------------------------------------------- */
-function spawnChest(x, z) {
+function spawnChest(x, z, isGolden = false) {
   const mesh   = buildChest();
+  if (isGolden) {
+    mesh.traverse(child => {
+      if (!child.material?.color) return;
+      child.material.color.setHex(child.material.color.getHex() === 0xd9a13c ? 0xffd447 : 0xb87818);
+      child.material.emissive?.setHex(0x4a2600);
+      if (child.material.emissiveIntensity !== undefined) child.material.emissiveIntensity = 0.35;
+    });
+  }
   mesh.position.set(x, 0, z);
   scene.add(mesh);
+  // 大型化した宝笱に合わせてマーカー位置を上方に調整
   const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.1, 8, 8),
+    new THREE.SphereGeometry(0.16, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0xffe45e })
   );
-  marker.position.y = 1.0;
+  marker.position.y = 1.8;
   mesh.add(marker);
-  chests.push({ mesh, opened: false });
+  // 宝笱自体に少し左右えている感じを出す
+  mesh.rotation.y = (Math.random() - 0.5) * 0.4;
+  chests.push({ mesh, opened: false, isGolden });
 }
 
 function openChest(chest) {
   if (chest.opened) return;
   chest.opened = true;
   scene.remove(chest.mesh);
-  const gotCoins = 10 + Math.floor(Math.random() * 21);
+  const gotCoins = chest.isGolden ? 80 + Math.floor(Math.random() * 61) : 10 + Math.floor(Math.random() * 21);
   coins += gotCoins;
   let msg = `たからばこを あけた！ コイン+${gotCoins}`;
   if (Math.random() < 0.3) {
@@ -443,13 +456,69 @@ function openChest(chest) {
     msg += ` ダイヤ+${gotDia}`;
   }
   // 一定確率で装備もドロップする(2026/07/24 追加)
-  if (Math.random() < CHEST_EQUIP_DROP_CHANCE) {
+  if (chest.isGolden || Math.random() < CHEST_EQUIP_DROP_CHANCE) {
     const newEquip = createEquipItem(rollRarity());
     playerEquipInventory.push(newEquip);
     msg += ` 「${newEquip.name}」も みつけた！`;
   }
   updateCurrencyUI();
   showToast(msg); // showToastはtextContent表示のため装備名もプレーンテキストで追記する
+}
+
+function buildBossGate() {
+  const gate = new THREE.Group();
+  const stone = new THREE.MeshStandardMaterial({ color: 0x4a3028, flatShading: true });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd49b38, emissive: 0x3a2100, emissiveIntensity: 0.25, flatShading: true });
+  [-1.25, 1.25].forEach(x => {
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.3, 0.7), stone);
+    pillar.position.set(x, 1.65, 0);
+    pillar.castShadow = true;
+    gate.add(pillar);
+  });
+  const top = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.65, 0.75), stone);
+  top.position.y = 3.15;
+  top.castShadow = true;
+  gate.add(top);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.5, 0.18), gold);
+  door.position.set(0, 1.25, 0.12);
+  door.castShadow = true;
+  gate.add(door);
+  const sign = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffe45e }));
+  sign.position.set(0, 3.55, 0);
+  gate.add(sign);
+  return gate;
+}
+
+function spawnBossGate(x, z) {
+  const mesh = buildBossGate();
+  mesh.position.set(x, 0, z);
+  scene.add(mesh);
+  stageDecorations.push(mesh);
+  bossGate = { mesh, x, z, triggered: false };
+}
+
+function setupBossArena() {
+  currentMapMode = 'bossArena';
+  clearStageObjects();
+  setupMazeFloor();
+  setDungeonAtmosphere();
+  wallMat.color.setHex(0x241a24);
+  if (minimapWrapEl) minimapWrapEl.style.display = 'none';
+
+  const arenaHalf = 14;
+  addWallSegment(0, -arenaHalf, arenaHalf * 2, WALL_THICKNESS);
+  addWallSegment(0, arenaHalf, arenaHalf * 2, WALL_THICKNESS);
+  addWallSegment(-arenaHalf, 0, WALL_THICKNESS, arenaHalf * 2);
+  addWallSegment(arenaHalf, 0, WALL_THICKNESS, arenaHalf * 2);
+
+  player.position.set(0, 0, 8);
+  player.rotation.y = Math.PI;
+  fieldPartyModels.forEach((m, i) => m.position.set(0, 0, 8 + 1.3 * (i + 1)));
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    spawnTorch(Math.cos(angle) * 10, Math.sin(angle) * 10);
+  }
+  spawnBoss(0, -6, currentStageNo === 2 ? 4 : 1);
 }
 
 /* ---------------------------------------------------------
@@ -500,6 +569,32 @@ function updateHealSpotTrigger() {
 /* ---------------------------------------------------------
    敵スポーン
 --------------------------------------------------------- */
+function buildEnemyAlertMarker(isBoss = false) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = 'bold 112px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('!', 64, 65);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const marker = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    color: isBoss ? 0xff5050 : 0xff2020,
+    transparent: true,
+    depthTest: false,
+  }));
+  marker.scale.set(isBoss ? 1.25 : 0.9, isBoss ? 1.25 : 0.9, 1);
+  marker.position.y = isBoss ? 2.8 : 2.15;
+  marker.visible = false;
+  return marker;
+}
+
 function spawnEnemy(x, z) {
   const type  = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const mesh  = type.build();
@@ -507,10 +602,7 @@ function spawnEnemy(x, z) {
   mesh.position.set(x, 0, z);
   scene.add(mesh);
 
-  const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffe45e })
-  );
+  const marker = buildEnemyAlertMarker();
   marker.position.y = 2.1;
   mesh.add(marker);
 
@@ -531,17 +623,18 @@ function spawnEnemy(x, z, allowedIndices = [0, 1, 2, 3, 4]) {
   mesh.position.set(x, 0, z);
   scene.add(mesh);
 
-  const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffe45e })
-  );
-  marker.position.y = 2.1;
+  // 追跡マーカー: 通常は黄色、追跡中は赤に変わる
+  const marker = buildEnemyAlertMarker();
   mesh.add(marker);
+  mesh.userData.chaseMarker = marker; // main.jsから参照できるよう保存
 
   enemies.push({
     mesh, type,
     hp: type.baseHp, maxHp: type.baseHp,
     alive: true,
+    wasChasing: false,
+    visionRange: 8.5,
+    visionAngle: Math.cos(Math.PI * 0.34),
     wanderTarget: new THREE.Vector3(x, 0, z),
     wanderTimer: 0,
   });
@@ -559,17 +652,16 @@ function spawnBoss(x, z, enemyTypeIdx = 1) {
   mesh.position.set(x, 0, z);
   scene.add(mesh);
 
-  const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xff5050 })
-  );
-  marker.position.y = 2.7;
+  const marker = buildEnemyAlertMarker(true);
   mesh.add(marker);
 
   enemies.push({
     mesh, type: bossType,
     hp: bossType.baseHp, maxHp: bossType.baseHp,
-    alive: true, isBoss: true,
+    alive: true, isBoss: true, isGuardBoss: true,
+    wasChasing: false,
+    visionRange: 10.5,
+    visionAngle: Math.cos(Math.PI * 0.42),
     wanderTarget: new THREE.Vector3(x, 0, z),
     wanderTimer: 0,
   });
@@ -592,6 +684,7 @@ function clearStageObjects() {
   chests = [];
   healSpots.forEach(s => { if (s.mesh) scene.remove(s.mesh); });
   healSpots = [];
+  bossGate = null;
 }
 
 /** 迷路突入時、屋外の明るいフォグ/ライティングから暗い洞窟風の雰囲気に切り替える */
@@ -609,6 +702,7 @@ function setDungeonAtmosphere() {
 --------------------------------------------------------- */
 function setupStage1() {
   currentStageNo = 1;
+  currentMapMode = 'stage';
   clearStageObjects();
   setupMazeFloor();
   setDungeonAtmosphere();
@@ -641,22 +735,22 @@ function setupStage1() {
     m.position.set(startX, 0, startZ - 1.3 * (i + 1));
   });
 
-  // 雑魚敵5体 (ケーキ島: チョコおばけ, ドーナツリング, いちごタルト姫)
+  // 雑魚敵 10体 (ケーキ島: チョコおばけ, ドーナツリング, いちごタルト姫, もりのぬし)
   const usedCells = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
   let spawned = 0, guard = 0;
-  while (spawned < 5 && guard < 500) {
+  while (spawned < 10 && guard < 500) {
     guard++;
     const r = Math.floor(Math.random() * MAZE_ROWS);
     const c = Math.floor(Math.random() * MAZE_COLS);
     const key = `${r},${c}`;
     if (usedCells.has(key)) continue;
     usedCells.add(key);
-    spawnEnemy(cellToWorldX(c), cellToWorldZ(r), [0, 2, 3]);
+    spawnEnemy(cellToWorldX(c), cellToWorldZ(r), [0, 2, 3, 5]);
     spawned++;
   }
 
   // ボス (ホールケーキ王)
-  spawnBoss(cellToWorldX(bossCell.c), cellToWorldZ(bossCell.r), 1);
+  spawnBossGate(cellToWorldX(bossCell.c), cellToWorldZ(bossCell.r));
 
   // 宝箱3個
   const chestUsed = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
@@ -716,6 +810,7 @@ function setupStage1() {
 --------------------------------------------------------- */
 function setupStage2() {
   currentStageNo = 2;
+  currentMapMode = 'stage';
   clearStageObjects();
   setupMazeFloor();
   setDungeonAtmosphere();
@@ -748,22 +843,22 @@ function setupStage2() {
     m.position.set(startX, 0, startZ - 1.3 * (i + 1));
   });
 
-  // 雑魚敵5体 (和菓子島: チョコおばけ[闇], 抹茶ロール[自然])
+  // 雑魚敵 10体 (和菓子島: チョコおばけ[閒], 抹茶ロール[自然])
   const usedCells = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
   let spawned = 0, guard = 0;
-  while (spawned < 5 && guard < 500) {
+  while (spawned < 10 && guard < 500) {
     guard++;
     const r = Math.floor(Math.random() * MAZE_ROWS);
     const c = Math.floor(Math.random() * MAZE_COLS);
     const key = `${r},${c}`;
     if (usedCells.has(key)) continue;
     usedCells.add(key);
-    spawnEnemy(cellToWorldX(c), cellToWorldZ(r), [0, 4]);
+    spawnEnemy(cellToWorldX(c), cellToWorldZ(r), [0, 4, 5]);
     spawned++;
   }
 
   // ボス (抹茶ロール)
-  spawnBoss(cellToWorldX(bossCell.c), cellToWorldZ(bossCell.r), 4);
+  spawnBossGate(cellToWorldX(bossCell.c), cellToWorldZ(bossCell.r));
 
   // 宝箱3個
   const chestUsed = new Set([`0,0`, `${bossCell.r},${bossCell.c}`]);
@@ -816,4 +911,58 @@ function setupStage2() {
       cellToWorldZ(r) + (Math.random() - 0.5) * 1.6
     );
   }
+}
+
+/**
+ * プレイヤーと敵の直線上に壁が存在しないか判定する (視界判定)
+ * @param {number} x1 - 始点X (敵)
+ * @param {number} z1 - 始点Z (敵)
+ * @param {number} x2 - 終点X (プレイヤー)
+ * @param {number} z2 - 終点Z (プレイヤー)
+ * @returns {boolean} 壁に遮られていなければ true
+ */
+function isLineOfSightClear(x1, z1, x2, z2) {
+  for (const w of mazeWallColliders) {
+    if (lineIntersectsAABB(x1, z1, x2, z2, w.minX, w.maxX, w.minZ, w.maxZ)) {
+      return false; // 壁に衝突＝視界が遮られている
+    }
+  }
+  return true;
+}
+
+/** 簡易的な線分と矩形(AABB)の交差判定 */
+function lineIntersectsAABB(x1, z1, x2, z2, minX, maxX, minZ, maxZ) {
+  let tMin = 0.0;
+  let tMax = 1.0;
+  
+  const dx = x2 - x1;
+  const dz = z2 - z1;
+  
+  // X軸のクリッピング
+  if (Math.abs(dx) < 0.000001) {
+    if (x1 < minX || x1 > maxX) return false;
+  } else {
+    const invDX = 1.0 / dx;
+    let t1 = (minX - x1) * invDX;
+    let t2 = (maxX - x1) * invDX;
+    if (t1 > t2) { const temp = t1; t1 = t2; t2 = temp; }
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return false;
+  }
+  
+  // Z軸のクリッピング
+  if (Math.abs(dz) < 0.000001) {
+    if (z1 < minZ || z1 > maxZ) return false;
+  } else {
+    const invDZ = 1.0 / dz;
+    let t1 = (minZ - z1) * invDZ;
+    let t2 = (maxZ - z1) * invDZ;
+    if (t1 > t2) { const temp = t1; t1 = t2; t2 = temp; }
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return false;
+  }
+  
+  return true;
 }
